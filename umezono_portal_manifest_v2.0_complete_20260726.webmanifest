@@ -1,0 +1,38 @@
+{
+  "id": "./",
+  "name": "梅園ポータル",
+  "short_name": "梅園",
+  "description": "梅園の社内ポータル",
+  "lang": "ja-JP",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f3ee",
+  "theme_color": "#8b1e2d",
+  "icons": [
+    {
+      "src": "favicon_portal_pwa_any_192_v2.0_complete_20260726.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon_portal_pwa_any_512_v2.0_complete_20260726.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon_portal_pwa_maskable_192_v2.0_complete_20260726.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "favicon_portal_pwa_maskable_512_v2.0_complete_20260726.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

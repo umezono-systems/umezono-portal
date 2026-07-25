@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <!--
+  v2.0 complete 固定化
+  - v2.0-6_work のPWA実機確認済み版を固定保管版として複製。
+  - Androidでmaskableアイコンが正常表示されることを実機確認済み。
+  - 画面タイトル・ヘッダー・manifest/PWA資産名を v2.0_complete に更新。
+  - Service Workerは追加せず、オフラインキャッシュは使用しない。
+  - GAS処理変更なし、DB変更なし。
+  - v2.0 complete は固定保管版として直接編集しない。
+-->
+<!--
   v2.0-6 Android PWAアイコン最適化
   - Androidホーム画面向けにmaskableアイコンを追加。
   - 通常用(any)とmaskable用を分離し、ランチャーによる白背景＋縮小表示を抑制。
@@ -56,7 +65,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.0-6 work</title>
+  <title>梅園ポータル v2.0 complete</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -64,9 +73,9 @@
   <meta name="apple-mobile-web-app-title" content="梅園">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <link rel="manifest" href="./umezono_portal_manifest_v2.0-6_work_20260725.webmanifest">
+  <link rel="manifest" href="./umezono_portal_manifest_v2.0_complete_20260726.webmanifest">
   <link rel="icon" type="image/png" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="./favicon_portal_apple_180_v2.0-6_20260725.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./favicon_portal_apple_180_v2.0_complete_20260726.png">
 
   <style>
     :root {
@@ -5371,7 +5380,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-6_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0_complete</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -14536,6 +14545,16 @@
   - v1.9 complete は固定保管版として直接編集しない
   - 投稿管理画面の整理、管理一覧文言整理、狭幅表示補強、アプリカード方針変更反映まで完了
   - HTML側中心の調整版、GAS処理変更なし、DB変更なし
+-->
+
+<!--
+  v2.0 complete 固定化
+  - v2.0-6_work のPWA対応最終版を固定保管版として複製
+  - Android向けmaskableアイコンを含むPWA基本対応を固定
+  - 画面タイトル・ヘッダーのバージョン表記を v2.0_complete に更新
+  - manifestおよびPWAアイコン資産名を固定版用へ更新
+  - Service Worker追加なし、GAS処理変更なし、DB変更なし
+  - v2.0 complete は直接編集せず、次回改修時は新しいwork版を作成する
 -->
 
 </body>
