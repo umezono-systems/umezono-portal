@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <!--
+  v2.0-5 PWA基本対応
+  - Web App Manifest を追加し、ホーム画面から standalone 表示で起動できる構成へ変更。
+  - PWA用 192x192 / 512x512 アイコンと Apple用 180x180 アイコンを追加。
+  - theme-color、mobile-web-app-capable、apple-mobile-web-app-capable を設定。
+  - 既存の梅園ポータル favicon_portal.png を元画像として使用し、見た目は変更しない。
+  - Service Worker / オフラインキャッシュは今回追加しない。更新時に旧HTMLが残るリスクを増やさないため。
+  - HTML/manifest/画像のみ変更。GAS変更なし、DB変更なし。
+-->
+<!--
   v2.0-4 GAS通信をJSONP/GETからfetch/POSTへ移行
   - GitHub Pages → GAS の全API通信を fetch / POST に統一。
   - JSONP callback、scriptタグ動的読込、GETクエリ送信を廃止。
@@ -37,12 +46,19 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.0-4 work</title>
+  <title>梅園ポータル v2.0-5 work</title>
 
+  <meta name="theme-color" content="#8b1e2d">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="梅園">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <link rel="manifest" href="./umezono_portal_manifest_v2.0-5_work_20260725.webmanifest">
   <link rel="icon" type="image/png" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
-  <link rel="apple-touch-icon" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./favicon_portal_apple_180_v2.0-5_20260725.png">
 
   <style>
     :root {
@@ -5347,7 +5363,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-4_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-5_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
