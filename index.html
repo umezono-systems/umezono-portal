@@ -1,5 +1,15 @@
 <!DOCTYPE html>
 <!--
+  v2.0-4 GAS通信をJSONP/GETからfetch/POSTへ移行
+  - GitHub Pages → GAS の全API通信を fetch / POST に統一。
+  - JSONP callback、scriptタグ動的読込、GETクエリ送信を廃止。
+  - Content-Type は text/plain;charset=utf-8 とし、JSON本文をPOSTする。
+  - 通信タイムアウトは従来どおり30秒。
+  - 書込み系APIは通信失敗時に自動再送しない。
+  - GAS側 doGet はping専用、API操作はdoPostのみ。
+  - DB変更なし、GASデプロイURL変更なし。
+-->
+<!--
   v2.0-3 社員マスタの同一タブ遷移
   - ポータルから社員マスタを開く場合のみ同一タブで遷移する。
   - 旅費精算など既存の外部アプリは従来どおり別タブで開く。
@@ -29,7 +39,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>梅園ポータル v2.0-3 work</title>
+  <title>梅園ポータル v2.0-4 work</title>
 
   <link rel="icon" type="image/png" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
   <link rel="apple-touch-icon" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
@@ -5337,7 +5347,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-3_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-4_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -7087,68 +7097,60 @@
       return "loader-2";
     }
 
-    function gasRequest(action, params = {}) {
-      return new Promise(function (resolve, reject) {
-        const callbackName =
-          "umezonoPortalCallback_" +
-          Date.now() +
-          "_" +
-          Math.random().toString(36).slice(2);
+    async function gasRequest(action, params = {}) {
+      const controller = new AbortController();
+      const timeoutId = window.setTimeout(function () {
+        controller.abort();
+      }, 30000);
 
-        const query = buildGasQueryString({
-          action: action,
-          callback: callbackName,
-          _ts: Date.now(),
-          ...params
+      const requestBody = JSON.stringify({
+        action: action,
+        _ts: Date.now(),
+        ...params
+      });
+
+      try {
+        const response = await fetch(GAS_API_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: requestBody,
+          signal: controller.signal
         });
 
-        const script = document.createElement("script");
-        script.async = true;
-
-        const timeoutId = setTimeout(function () {
-          cleanup();
-          reject(new Error(action + " の接続がタイムアウトしました"));
-        }, 30000);
-
-        window[callbackName] = function (response) {
-          cleanup();
-
-          if (response && response.ok) {
-            resolve(response.data);
-            return;
-          }
-
-          reject(new Error(action + " の取得に失敗しました: " + (response && response.error ? response.error : "接続エラーが発生しました")));
-        };
-
-        script.onerror = function () {
-          cleanup();
-          reject(new Error(action + " の接続スクリプト読み込みに失敗しました"));
-        };
-
-        script.src = GAS_API_URL + "?" + query;
-        document.body.appendChild(script);
-
-        function cleanup() {
-          clearTimeout(timeoutId);
-
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
-
-          try {
-            delete window[callbackName];
-          } catch (error) {
-            window[callbackName] = undefined;
-          }
+        if (!response.ok) {
+          throw new Error(action + " の接続に失敗しました。status=" + response.status);
         }
-      });
-    }
 
-    function buildGasQueryString(params) {
-      return Object.keys(params).map(function (key) {
-        return encodeURIComponent(key) + "=" + encodeURIComponent(params[key] == null ? "" : params[key]);
-      }).join("&");
+        const responseText = await response.text();
+        let result;
+
+        try {
+          result = JSON.parse(responseText);
+        } catch (parseError) {
+          throw new Error(action + " でGASからJSON以外の応答が返されました");
+        }
+
+        if (result && result.ok) {
+          return result.data;
+        }
+
+        throw new Error(
+          action +
+          " の処理に失敗しました: " +
+          (result && result.error ? result.error : "接続エラーが発生しました")
+        );
+
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          throw new Error(action + " の接続がタイムアウトしました");
+        }
+        throw error;
+
+      } finally {
+        window.clearTimeout(timeoutId);
+      }
     }
 
     function normalizeNotice(notice) {
