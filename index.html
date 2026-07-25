@@ -1,11 +1,28 @@
 <!DOCTYPE html>
+<!--
+  v2.0-2 社員マスタ公開URL接続
+  - 社員マスタ公開URLを PORTAL_APP_LINKS.employeeMaster へ設定。
+  - 管理用の小型入口を有効化。
+  - 社員マスタ側の認証・権限制御を正とし、ポータル側での認証追加なし。
+  - 掲示板GAS処理・DB変更なし。
+-->
+<!--
+  v2.0-1 v2.0_work開始・社員マスタ入口追加
+  - v1.9 complete は固定保管版として直接編集しない。
+  - v1.9 complete を作業用として複製し、v2.0_work を開始。
+  - 梅園アプリ画面の通常アプリカードとは分離し、画面下部に控えめな「管理用」入口を追加。
+  - 社員マスタは管理者向けのため、大型カード・利用可バッジを使わず小型リンクとして表示。
+  - employeeMaster の公開URLは未設定。PORTAL_APP_LINKS.employeeMaster にURL設定後のみ有効化する。
+  - 社員マスタ側の認証・権限制御を正とし、ポータル側では認証処理を重複実装しない。
+  - HTML/CSS/JavaScriptのみ機能追加。掲示板GAS処理・DB変更なし。
+-->
 <html lang="ja">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>梅園ポータル v1.9</title>
+  <title>梅園ポータル v2.0-2 work</title>
 
   <link rel="icon" type="image/png" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
   <link rel="apple-touch-icon" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
@@ -3579,6 +3596,90 @@
       height: 15px;
     }
 
+    /* v2.0-1: 一般利用アプリより目立たせない管理用アプリ入口 */
+    .portal-management-links {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 10px;
+      border-top: 1px solid rgba(232, 221, 213, 0.72);
+    }
+
+    .portal-management-label {
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.3;
+      letter-spacing: 0.04em;
+    }
+
+    .portal-management-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 31px;
+      padding: 6px 10px;
+      border: 1px solid rgba(127, 113, 106, 0.22);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.72);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.3;
+      box-shadow: none;
+    }
+
+    .portal-management-link:hover:not(:disabled) {
+      border-color: rgba(127, 113, 106, 0.42);
+      background: #fff;
+      color: var(--text);
+    }
+
+    .portal-management-link.is-available {
+      border-color: rgba(127, 113, 106, 0.26);
+      background: rgba(255, 255, 255, 0.78);
+      color: #665b55;
+    }
+
+    .portal-management-link.is-waiting-app,
+    .portal-management-link:disabled {
+      cursor: not-allowed;
+      opacity: 0.68;
+      background: transparent;
+      color: #9a8d86;
+    }
+
+    .portal-management-link-icon {
+      width: 14px;
+      height: 14px;
+      flex: 0 0 auto;
+    }
+
+    .portal-management-link-note {
+      color: #9a8d86;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    @media (max-width: 560px) {
+      .portal-management-links {
+        justify-content: flex-end;
+        margin-top: 10px;
+      }
+
+      .portal-management-label {
+        display: none;
+      }
+
+      .portal-management-link {
+        min-height: 29px;
+        padding: 5px 9px;
+        font-size: 10px;
+      }
+    }
+
     .notice-admin-entry-panel {
       display: flex;
       justify-content: flex-end;
@@ -5229,7 +5330,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v1.9_complete</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-2_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -5309,6 +5410,23 @@
               <span class="portal-app-text">出張旅費の申請・確認を別画面で開きます。</span>
               <span id="portal-travel-expense-action" class="portal-app-action">旅費精算を別画面で開く<i data-lucide="external-link" class="portal-app-action-icon" aria-hidden="true"></i></span>
             </span>
+          </button>
+        </div>
+
+        <div class="portal-management-links" aria-label="管理用アプリ">
+          <span class="portal-management-label">管理用</span>
+          <button
+            class="portal-management-link"
+            type="button"
+            data-portal-app-link="employeeMaster"
+            data-portal-app-name="社員マスタ"
+            data-portal-app-open-label="社員マスタを開く"
+            data-portal-app-waiting-label="URL未設定"
+            data-portal-app-waiting-status="URL未設定"
+          >
+            <i data-lucide="users-round" class="portal-management-link-icon" aria-hidden="true"></i>
+            <span>社員マスタ</span>
+            <span class="portal-management-link-note">管理者用</span>
           </button>
         </div>
       </section>
@@ -6213,14 +6331,15 @@
     };
 
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyOo2xtAX0Sj_p9z2JYIlajllJj4VfgMZ4txtWoUGZXjNGqL3k0Yz7sCvk8DQegECai/exec";
-    const VIEW_STATE_STORAGE_KEY = "umezono-portal-v1.9-view-state";
-    const READ_STATE_STORAGE_KEY = "umezono-portal-v1.9-read-state";
+    const VIEW_STATE_STORAGE_KEY = "umezono-portal-v2.0-view-state";
+    const READ_STATE_STORAGE_KEY = "umezono-portal-v2.0-read-state";
 
     // v1.3-9: 梅園アプリ入口用。URLを設定すると、該当カードが「利用可」になります。
     const PORTAL_APP_LINKS = {
       taskManagement: "",
       commuteExpense: "",
-      travelExpense: "https://umezono-systems.github.io/umezono-travel-expense/"
+      travelExpense: "https://umezono-systems.github.io/umezono-travel-expense/",
+      employeeMaster: "https://umezono-systems.github.io/employee-master/"
     };
 
     // v1.3-9: 梅園アプリ入口用。画像URLを設定するとカードアイコンとして表示します。
@@ -6253,7 +6372,7 @@
         notice_type: "notice",
         category: "general",
         title: "サンプル掲示",
-        body: "これは実データではありません。梅園掲示板 v1.9 の確認用サンプル掲示です。\n\nGAS接続前、または実データを取得できない場合にだけ表示されます。通常運用でこの表示が出た場合は、接続状態を確認してください。",
+        body: "これは実データではありません。梅園掲示板 v2.0 の確認用サンプル掲示です。\n\nGAS接続前、または実データを取得できない場合にだけ表示されます。通常運用でこの表示が出た場合は、接続状態を確認してください。",
         start_date: "2026-06-26",
         end_date: "2026-07-31",
         event_date: "",
