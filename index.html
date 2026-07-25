@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <!--
+  v2.0-3 社員マスタの同一タブ遷移
+  - ポータルから社員マスタを開く場合のみ同一タブで遷移する。
+  - 旅費精算など既存の外部アプリは従来どおり別タブで開く。
+  - 社員マスタ側の「ポータルへ戻る」と往復してもタブを増やさない。
+  - HTML側のみ変更。掲示板GAS処理・DB変更なし。
+-->
+<!--
   v2.0-2 社員マスタ公開URL接続
   - 社員マスタ公開URLを PORTAL_APP_LINKS.employeeMaster へ設定。
   - 管理用の小型入口を有効化。
@@ -22,7 +29,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>梅園ポータル v2.0-2 work</title>
+  <title>梅園ポータル v2.0-3 work</title>
 
   <link rel="icon" type="image/png" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
   <link rel="apple-touch-icon" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
@@ -5330,7 +5337,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-2_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-3_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -5419,6 +5426,7 @@
             class="portal-management-link"
             type="button"
             data-portal-app-link="employeeMaster"
+            data-portal-app-open-mode="same-tab"
             data-portal-app-name="社員マスタ"
             data-portal-app-open-label="社員マスタを開く"
             data-portal-app-waiting-label="URL未設定"
@@ -7192,7 +7200,10 @@
 
       document.querySelectorAll("[data-portal-app-link]").forEach(function (button) {
         button.addEventListener("click", function () {
-          openPortalAppLink(button.dataset.portalAppLink);
+          openPortalAppLink(
+            button.dataset.portalAppLink,
+            button.dataset.portalAppOpenMode || "new-tab"
+          );
         });
       });
 
@@ -7678,9 +7689,14 @@
       return String(PORTAL_APP_ICONS[iconKey] || "").trim();
     }
 
-    function openPortalAppLink(linkKey) {
+    function openPortalAppLink(linkKey, openMode) {
       const url = getPortalAppLink(linkKey);
       if (!url) return;
+
+      if (openMode === "same-tab") {
+        window.location.assign(url);
+        return;
+      }
 
       window.open(url, "_blank", "noopener,noreferrer");
     }
@@ -7692,17 +7708,22 @@
         const openLabel = button.dataset.portalAppOpenLabel || appName + "を開く";
         const waitingLabel = button.dataset.portalAppWaitingLabel || "準備中";
         const waitingStatus = button.dataset.portalAppWaitingStatus || "準備中";
+        const openMode = button.dataset.portalAppOpenMode || "new-tab";
         const url = getPortalAppLink(linkKey);
         const status = button.querySelector(".portal-app-status");
         const action = button.querySelector(".portal-app-action");
 
         if (url) {
+          const openDescription = openMode === "same-tab"
+            ? appName + "をこの画面で開く"
+            : appName + "を別画面で開く";
+
           button.disabled = false;
           button.removeAttribute("aria-disabled");
           button.classList.add("is-available");
           button.classList.remove("is-waiting-app");
-          button.setAttribute("aria-label", appName + "を別画面で開く");
-          button.setAttribute("title", appName + "を別画面で開く");
+          button.setAttribute("aria-label", openDescription);
+          button.setAttribute("title", openDescription);
 
           if (status) {
             status.textContent = "利用可";
