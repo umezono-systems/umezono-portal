@@ -1,5 +1,13 @@
 <!DOCTYPE html>
 <!--
+  v2.0-6 Android PWAアイコン最適化
+  - Androidホーム画面向けにmaskableアイコンを追加。
+  - 通常用(any)とmaskable用を分離し、ランチャーによる白背景＋縮小表示を抑制。
+  - maskableアイコンは外周をブランド色で不透明化し、OS側の形状マスクに対応。
+  - manifest・PWA画像・HTML版表記のみ変更。Service Worker追加なし。
+  - GAS変更なし、DB変更なし。
+-->
+<!--
   v2.0-5 PWA基本対応
   - Web App Manifest を追加し、ホーム画面から standalone 表示で起動できる構成へ変更。
   - PWA用 192x192 / 512x512 アイコンと Apple用 180x180 アイコンを追加。
@@ -48,7 +56,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.0-5 work</title>
+  <title>梅園ポータル v2.0-6 work</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -56,9 +64,9 @@
   <meta name="apple-mobile-web-app-title" content="梅園">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
 
-  <link rel="manifest" href="./umezono_portal_manifest_v2.0-5_work_20260725.webmanifest">
+  <link rel="manifest" href="./umezono_portal_manifest_v2.0-6_work_20260725.webmanifest">
   <link rel="icon" type="image/png" href="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="./favicon_portal_apple_180_v2.0-5_20260725.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="./favicon_portal_apple_180_v2.0-6_20260725.png">
 
   <style>
     :root {
@@ -5363,7 +5371,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-5_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.0-6_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
