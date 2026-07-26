@@ -1,5 +1,15 @@
 <!DOCTYPE html>
 <!--
+  v2.1-6 Push通知対象設定
+  - Push登録済み端末ごとに、重要掲示の通知を受けたい所属/対象を複数選択できる設定画面を追加。
+  - 対象候補はGASの _sys_department から取得し、全社(all)は選択肢から除外する。
+  - 全社向け重要掲示は所属設定に関係なく全通知端末へ送る前提とする。
+  - 所属未選択の場合は全社向け重要掲示のみ受信する設計とする。
+  - 設定は getPushSubscriptionSettings / updatePushSubscriptionTargets でGASへ保存する。
+  - Service Worker・オフラインキャッシュは変更しない。
+  - 重要掲示保存時の自動Push送信はまだ接続しない。
+-->
+<!--
   v2.1-4-1 Push登録サーバー同期の再試行強化
   - v2.1-4で既に端末内に保存済みのFIDがある場合、起動時にそのFIDを直接GASへ同期する。
   - register() / onRegistered() の通知だけに依存せず、v2.1-3からの既存登録端末も確実にt_push_subscriptionへ移行する。
@@ -110,7 +120,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1-4-1_work</title>
+  <title>梅園ポータル v2.1-6_work</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -3034,6 +3044,114 @@
       opacity: 0.62;
     }
 
+
+    .push-target-panel {
+      display: grid;
+      gap: 10px;
+      margin: -2px 0 12px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: #fff;
+    }
+
+    .push-target-panel[hidden] {
+      display: none;
+    }
+
+    .push-target-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .push-target-title {
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1.5;
+    }
+
+    .push-target-help,
+    .push-target-status {
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+    }
+
+    .push-target-status.is-success {
+      color: #23653a;
+    }
+
+    .push-target-status.is-error {
+      color: var(--danger);
+    }
+
+    .push-target-checks {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .push-target-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-sm);
+      background: var(--surface-soft);
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.4;
+    }
+
+    .push-target-check input {
+      flex: 0 0 auto;
+      width: 18px;
+      height: 18px;
+      accent-color: var(--brand);
+    }
+
+    .push-target-check span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+    }
+
+    .push-target-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 8px 10px;
+    }
+
+    .push-target-save-button {
+      border: 1px solid var(--brand);
+      border-radius: 999px;
+      background: #fff;
+      color: var(--brand);
+      padding: 8px 12px;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.3;
+    }
+
+    .push-target-save-button:hover {
+      background: #fff0f1;
+    }
+
+    .push-target-save-button:disabled {
+      cursor: not-allowed;
+      opacity: 0.62;
+    }
+
     .important-summary-text {
       margin: 0;
       color: var(--muted);
@@ -4908,6 +5026,10 @@
         width: 100%;
       }
 
+      .push-target-checks {
+        grid-template-columns: 1fr;
+      }
+
       .admin-field-footer {
         flex-direction: column;
         gap: 4px;
@@ -5559,7 +5681,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-4-1_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-6_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -5892,6 +6014,21 @@
             </div>
           </div>
           <button id="push-notification-action-button" class="push-notification-action" type="button">通知を受け取る</button>
+        </div>
+
+
+        <div id="push-target-panel" class="push-target-panel" aria-label="重要掲示の通知対象設定" hidden>
+          <div class="push-target-head">
+            <div>
+              <div class="push-target-title">通知する所属</div>
+              <p class="push-target-help">自分に関係する所属を選択してください。全社向けの重要掲示は、ここでの選択に関係なく通知されます。</p>
+            </div>
+          </div>
+          <div id="push-target-checks" class="push-target-checks" aria-label="通知対象の所属"></div>
+          <div class="push-target-actions">
+            <p id="push-target-status" class="push-target-status" role="status" aria-live="polite">通知対象を読み込んでいます。</p>
+            <button id="push-target-save-button" class="push-target-save-button" type="button">通知対象を保存</button>
+          </div>
         </div>
 
         <div class="home-filter-panel" aria-label="重要掲示の絞り込み">
@@ -13725,6 +13862,10 @@
     const pushPanel = document.getElementById("push-notification-panel");
     const pushStatus = document.getElementById("push-notification-status");
     const pushActionButton = document.getElementById("push-notification-action-button");
+    const pushTargetPanel = document.getElementById("push-target-panel");
+    const pushTargetChecks = document.getElementById("push-target-checks");
+    const pushTargetStatus = document.getElementById("push-target-status");
+    const pushTargetSaveButton = document.getElementById("push-target-save-button");
 
     let messaging = null;
     let serviceWorkerRegistration = null;
@@ -13767,6 +13908,7 @@
     }
 
     function clearPushRegistration() {
+      setPushTargetPanelVisible(false);
       try {
         window.localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, "false");
         window.localStorage.removeItem(PUSH_FID_STORAGE_KEY);
@@ -13865,6 +14007,154 @@
       });
     }
 
+
+    function setPushTargetStatus(message, mode) {
+      if (!pushTargetStatus) return;
+      pushTargetStatus.classList.remove("is-success", "is-error");
+      if (mode === "success") pushTargetStatus.classList.add("is-success");
+      if (mode === "error") pushTargetStatus.classList.add("is-error");
+      pushTargetStatus.textContent = message;
+    }
+
+    function setPushTargetPanelVisible(visible) {
+      if (!pushTargetPanel) return;
+      pushTargetPanel.hidden = !visible;
+    }
+
+    function getSelectedPushTargetTypes() {
+      if (!pushTargetChecks) return [];
+      return Array.from(pushTargetChecks.querySelectorAll('input[type="checkbox"]:checked'))
+        .map(function (input) {
+          return String(input.value || "").trim();
+        })
+        .filter(Boolean);
+    }
+
+    function renderPushTargetChecks(departments, selectedTargets) {
+      if (!pushTargetChecks) return;
+
+      const selectedSet = new Set(Array.isArray(selectedTargets) ? selectedTargets : []);
+      const options = (Array.isArray(departments) ? departments : [])
+        .map(function (row) {
+          return {
+            value: String(row.department_code || "").trim(),
+            label: String(row.department_name || row.department_code || "").trim()
+          };
+        })
+        .filter(function (option) {
+          return option.value && option.value !== "all";
+        });
+
+      if (options.length === 0) {
+        pushTargetChecks.innerHTML = '<p class="push-target-help">通知対象マスタを取得できませんでした。</p>';
+        if (pushTargetSaveButton) pushTargetSaveButton.disabled = true;
+        return;
+      }
+
+      pushTargetChecks.innerHTML = options.map(function (option) {
+        const value = String(option.value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        const label = String(option.label)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+        const checked = selectedSet.has(option.value) ? " checked" : "";
+
+        return `
+          <label class="push-target-check">
+            <input type="checkbox" value="${value}"${checked}>
+            <span>${label}</span>
+          </label>
+        `;
+      }).join("");
+
+      if (pushTargetSaveButton) pushTargetSaveButton.disabled = false;
+    }
+
+    async function loadPushTargetSettings(fid) {
+      const installationId = String(fid || "").trim();
+      if (!installationId || !pushTargetPanel) return;
+
+      setPushTargetPanelVisible(true);
+      if (pushTargetSaveButton) pushTargetSaveButton.disabled = true;
+      setPushTargetStatus("通知対象を読み込んでいます。", "");
+
+      try {
+        const request = getPortalGasRequest();
+        const results = await Promise.all([
+          request("getMasterData", {}),
+          request("getPushSubscriptionSettings", { fid: installationId })
+        ]);
+        const masterData = results[0] || {};
+        const settings = results[1] || {};
+        const selectedTargets = Array.isArray(settings.target_types)
+          ? settings.target_types
+          : [];
+
+        renderPushTargetChecks(masterData.departments || [], selectedTargets);
+        setPushTargetStatus(
+          selectedTargets.length > 0
+            ? "現在の通知対象を読み込みました。変更した場合は保存してください。"
+            : "所属は未選択です。現在は全社向けの重要掲示のみ通知されます。",
+          selectedTargets.length > 0 ? "success" : ""
+        );
+      } catch (error) {
+        console.error("Push通知対象設定の読込に失敗しました。", error);
+        if (pushTargetSaveButton) pushTargetSaveButton.disabled = true;
+        setPushTargetStatus("通知対象を読み込めませんでした。ページ再読み込みで再試行してください。", "error");
+      }
+    }
+
+    async function savePushTargetSettings() {
+      const fid = getStoredFid();
+      if (!fid || !pushTargetSaveButton) return;
+
+      const selectedTargets = getSelectedPushTargetTypes();
+      pushTargetSaveButton.disabled = true;
+      setPushTargetStatus("通知対象を保存しています。", "");
+
+      try {
+        const result = await getPortalGasRequest()("updatePushSubscriptionTargets", {
+          fid: fid,
+          target_types: selectedTargets
+        });
+        const savedTargets = result && Array.isArray(result.target_types)
+          ? result.target_types
+          : selectedTargets;
+
+        renderPushTargetChecks(
+          Array.from(pushTargetChecks.querySelectorAll('input[type="checkbox"]')).map(function (input) {
+            const label = input.closest("label");
+            return {
+              department_code: input.value,
+              department_name: label && label.querySelector("span")
+                ? label.querySelector("span").textContent
+                : input.value
+            };
+          }),
+          savedTargets
+        );
+
+        setPushTargetStatus(
+          savedTargets.length > 0
+            ? "通知対象を保存しました。全社向け＋選択した所属の重要掲示を通知します。"
+            : "通知対象を保存しました。全社向けの重要掲示のみ通知します。",
+          "success"
+        );
+      } catch (error) {
+        console.error("Push通知対象設定の保存に失敗しました。", error);
+        setPushTargetStatus("通知対象を保存できませんでした。もう一度お試しください。", "error");
+      } finally {
+        pushTargetSaveButton.disabled = false;
+      }
+    }
+
     function getNoticeLinkFromPayload(payload) {
       const data = payload && payload.data ? payload.data : {};
       const noticeId = String(data.notice_id || data.noticeId || "").trim();
@@ -13912,6 +14202,7 @@
           "enabled",
           "この端末は重要掲示のPush通知を受け取る設定です。サーバー登録も完了しています。"
         );
+        await loadPushTargetSettings(fid);
       } catch (error) {
         console.error("Push通知FIDのGAS保存に失敗しました。", error);
         setPushUi(
@@ -14079,6 +14370,7 @@
                 "enabled",
                 "この端末は重要掲示のPush通知を受け取る設定です。サーバー登録も完了しています。"
               );
+              await loadPushTargetSettings(storedFid);
             } catch (error) {
               console.error("保存済みFIDのGAS同期に失敗しました。", error);
               setPushUi(
@@ -14117,6 +14409,12 @@
         }
 
         registerPushForThisDevice();
+      });
+    }
+
+    if (pushTargetSaveButton) {
+      pushTargetSaveButton.addEventListener("click", function () {
+        savePushTargetSettings();
       });
     }
 
