@@ -1,5 +1,12 @@
 <!DOCTYPE html>
 <!--
+  v2.1-4-1 Push登録サーバー同期の再試行強化
+  - v2.1-4で既に端末内に保存済みのFIDがある場合、起動時にそのFIDを直接GASへ同期する。
+  - register() / onRegistered() の通知だけに依存せず、v2.1-3からの既存登録端末も確実にt_push_subscriptionへ移行する。
+  - GAS側v2.1-4は変更なし。Service Worker変更なし。
+  - オフラインキャッシュは追加しない。
+-->
+<!--
   v2.1-1 v2.1_work 開始
   - v2.0 complete は固定保管版として直接編集しない。
   - v2.0 complete を作業用として複製し、v2.1_work を開始。
@@ -103,7 +110,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1-4_work</title>
+  <title>梅園ポータル v2.1-4-1_work</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -5552,7 +5559,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-4_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-4-1_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -14058,7 +14065,31 @@
         }
 
         if (Notification.permission === "granted" && getStoredPushEnabled()) {
-          setPushUi("loading", "Push通知の端末登録とサーバー登録を確認しています。");
+          const storedFid = getStoredFid();
+
+          // v2.1-3以前ですでに取得済みのFIDがある場合は、
+          // onRegistered() の再通知を待たず、まずGASへ直接同期する。
+          // register() はその後も実行し、FCM側の登録状態を更新・再確認する。
+          if (storedFid) {
+            setPushUi("loading", "保存済みの通知先をサーバーへ同期しています。");
+
+            try {
+              await syncPushRegistrationToServer(storedFid);
+              setPushUi(
+                "enabled",
+                "この端末は重要掲示のPush通知を受け取る設定です。サーバー登録も完了しています。"
+              );
+            } catch (error) {
+              console.error("保存済みFIDのGAS同期に失敗しました。", error);
+              setPushUi(
+                "warning",
+                "Firebaseへの端末登録は確認できましたが、通知先のサーバー登録を確認できませんでした。FCM登録を再確認しています。"
+              );
+            }
+          } else {
+            setPushUi("loading", "Push通知の端末登録とサーバー登録を確認しています。");
+          }
+
           await registerMessaging(messaging, {
             vapidKey: FCM_VAPID_PUBLIC_KEY,
             serviceWorkerRegistration: serviceWorkerRegistration
