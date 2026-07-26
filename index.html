@@ -1,3 +1,12 @@
+<!--
+  v2.1-8 掲載開始日の重要掲示予約Push
+  - GAS側に毎日8:00頃の時間主導トリガーを追加し、未来日で登録した重要掲示を掲載開始日にPush送信する。
+  - 同日作成の重要掲示は従来どおり保存直後に送信し、予約処理との二重送信を防ぐ。
+  - t_push_notice_delivery で掲示単位の初回Push結果を記録する。
+  - Apps Scriptの時間主導トリガー仕様上、実行時刻は8:00を中心に前後する場合がある。
+  - HTML側は版表記と、掲載開始前の保存結果案内のみ更新。
+  - Service Worker変更なし、オフラインキャッシュなし。
+-->
 <!DOCTYPE html>
 <!--
   v2.1-7 重要掲示の新規投稿Push自動送信
@@ -129,7 +138,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1-7_work</title>
+  <title>梅園ポータル v2.1-8_work</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -5690,7 +5699,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-7_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-8_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -9090,7 +9099,7 @@
           } else if (skipReason === "no_matching_subscriptions") {
             savedMessage += " Push通知対象端末は0台でした。";
           } else if (skipReason === "upcoming") {
-            savedMessage += " 掲載開始前のためPush通知はまだ送信していません。";
+            savedMessage += " 掲載開始前のためPush通知はまだ送信していません。掲載開始日の8:00頃に予約Pushする対象です。";
           } else if (skipReason === "ended") {
             savedMessage += " 掲載終了済みのためPush通知は送信していません。";
           }
