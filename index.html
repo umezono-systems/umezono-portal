@@ -29,6 +29,15 @@
   - 既存の掲示板GAS処理・DB変更なし。
 -->
 <!--
+  v2.1-4 FIDのGAS保存
+  - Firebaseで登録されたFIDをGASへPOSTし、通知先端末としてサーバー側へ保存する処理を追加。
+  - registerPushSubscription / unregisterPushSubscription APIを利用する。
+  - Firebase登録成功だけではなく、GAS側の通知先登録まで成功した場合に「サーバー登録完了」と表示する。
+  - 端末情報としてPWA/ブラウザ表示、platform、language、userAgentを補助情報として送信する。
+  - 通知対象は現段階では important 固定。重要掲示のみPush対象とする。
+  - Service Workerの通知受信処理・オフラインキャッシュ方針はv2.1-3から変更なし。
+-->
+<!--
   v2.0 complete 固定化
   - v2.0-6_work のPWA実機確認済み版を固定保管版として複製。
   - Androidでmaskableアイコンが正常表示されることを実機確認済み。
@@ -94,7 +103,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1_work</title>
+  <title>梅園ポータル v2.1-4_work</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -2964,6 +2973,16 @@
       background: #fff7f7;
     }
 
+    .push-notification-panel.is-warning {
+      border-color: #ead27b;
+      background: #fff8df;
+    }
+
+    .push-notification-panel.is-warning .push-notification-icon-wrap {
+      background: #fff;
+      color: #735700;
+    }
+
     .push-notification-panel.is-error .push-notification-icon-wrap {
       background: #fff;
       color: var(--danger);
@@ -5533,7 +5552,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-4_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -7402,6 +7421,9 @@
         window.clearTimeout(timeoutId);
       }
     }
+
+    // Firebase module側からも既存のGAS POST処理を再利用する。
+    window.umezonoPortalGasRequest = gasRequest;
 
     function normalizeNotice(notice) {
       return {
@@ -13689,6 +13711,7 @@
     const PUSH_FID_STORAGE_KEY = "umezono-portal-v2.1-push-fid";
     const PUSH_ENABLED_STORAGE_KEY = "umezono-portal-v2.1-push-enabled";
     const PUSH_REGISTERED_AT_STORAGE_KEY = "umezono-portal-v2.1-push-registered-at";
+    const PUSH_SERVER_SYNCED_STORAGE_KEY = "umezono-portal-v2.1-push-server-synced";
     const PUSH_SERVICE_WORKER_URL = "./firebase-messaging-sw.js";
     const PORTAL_BASE_URL = "https://umezono-systems.github.io/umezono-portal/";
 
@@ -13717,11 +13740,20 @@
       }
     }
 
+    function setPushServerSynced(synced) {
+      try {
+        window.localStorage.setItem(PUSH_SERVER_SYNCED_STORAGE_KEY, synced ? "true" : "false");
+      } catch (error) {
+        console.warn("Push通知のサーバー同期状態を保存できませんでした。", error);
+      }
+    }
+
     function savePushRegistration(installationId) {
       try {
         window.localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, "true");
         window.localStorage.setItem(PUSH_FID_STORAGE_KEY, String(installationId || ""));
         window.localStorage.setItem(PUSH_REGISTERED_AT_STORAGE_KEY, new Date().toISOString());
+        window.localStorage.setItem(PUSH_SERVER_SYNCED_STORAGE_KEY, "false");
       } catch (error) {
         console.warn("Push通知の端末登録状態を保存できませんでした。", error);
       }
@@ -13732,6 +13764,7 @@
         window.localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, "false");
         window.localStorage.removeItem(PUSH_FID_STORAGE_KEY);
         window.localStorage.removeItem(PUSH_REGISTERED_AT_STORAGE_KEY);
+        window.localStorage.removeItem(PUSH_SERVER_SYNCED_STORAGE_KEY);
       } catch (error) {
         console.warn("Push通知の端末登録状態を削除できませんでした。", error);
       }
@@ -13740,12 +13773,16 @@
     function setPushUi(mode, message) {
       if (!pushPanel || !pushStatus || !pushActionButton) return;
 
-      pushPanel.classList.remove("is-enabled", "is-error");
+      pushPanel.classList.remove("is-enabled", "is-error", "is-warning");
       pushActionButton.classList.remove("is-stop");
       pushActionButton.disabled = false;
 
       if (mode === "enabled") {
         pushPanel.classList.add("is-enabled");
+        pushActionButton.classList.add("is-stop");
+        pushActionButton.textContent = "この端末の通知を停止";
+      } else if (mode === "warning") {
+        pushPanel.classList.add("is-warning");
         pushActionButton.classList.add("is-stop");
         pushActionButton.textContent = "この端末の通知を停止";
       } else if (mode === "error") {
@@ -13759,6 +13796,66 @@
       }
 
       pushStatus.textContent = message;
+    }
+
+    function getDisplayMode() {
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+        return "standalone";
+      }
+
+      if (window.navigator && window.navigator.standalone === true) {
+        return "standalone";
+      }
+
+      return "browser";
+    }
+
+    function getPlatformText() {
+      if (navigator.userAgentData && navigator.userAgentData.platform) {
+        return String(navigator.userAgentData.platform);
+      }
+
+      return String(navigator.platform || "");
+    }
+
+    function getPortalGasRequest() {
+      const request = window.umezonoPortalGasRequest;
+
+      if (typeof request !== "function") {
+        throw new Error("GAS通信処理を利用できません");
+      }
+
+      return request;
+    }
+
+    async function syncPushRegistrationToServer(fid) {
+      const installationId = String(fid || "").trim();
+      if (!installationId) {
+        throw new Error("FIDが取得できていません");
+      }
+
+      setPushServerSynced(false);
+
+      const result = await getPortalGasRequest()("registerPushSubscription", {
+        fid: installationId,
+        notification_scope: "important",
+        display_mode: getDisplayMode(),
+        platform: getPlatformText(),
+        language: String(navigator.language || ""),
+        user_agent: String(navigator.userAgent || "")
+      });
+
+      setPushServerSynced(true);
+      return result;
+    }
+
+    async function unregisterPushRegistrationFromServer(fid) {
+      const installationId = String(fid || "").trim();
+      if (!installationId) return;
+
+      await getPortalGasRequest()("unregisterPushSubscription", {
+        fid: installationId
+      });
     }
 
     function getNoticeLinkFromPayload(payload) {
@@ -13795,6 +13892,32 @@
       });
     }
 
+    async function handleRegisteredFid(installationId) {
+      const fid = String(installationId || "").trim();
+      if (!fid) return;
+
+      savePushRegistration(fid);
+      setPushUi("loading", "Firebase登録済みです。通知先をサーバーへ登録しています。");
+
+      try {
+        await syncPushRegistrationToServer(fid);
+        setPushUi(
+          "enabled",
+          "この端末は重要掲示のPush通知を受け取る設定です。サーバー登録も完了しています。"
+        );
+      } catch (error) {
+        console.error("Push通知FIDのGAS保存に失敗しました。", error);
+        setPushUi(
+          "warning",
+          "Firebaseへの端末登録は完了しましたが、通知先のサーバー登録を確認できませんでした。ページ再読み込みで再試行します。"
+        );
+      }
+
+      window.dispatchEvent(new CustomEvent("umezono:fcm-registered", {
+        detail: { installationId: fid }
+      }));
+    }
+
     async function registerPushForThisDevice() {
       if (!pushSupported || !messaging || !serviceWorkerRegistration || pushOperationRunning) return;
 
@@ -13820,6 +13943,7 @@
         }
 
         window.localStorage.setItem(PUSH_ENABLED_STORAGE_KEY, "true");
+        setPushServerSynced(false);
 
         await registerMessaging(messaging, {
           vapidKey: FCM_VAPID_PUBLIC_KEY,
@@ -13844,10 +13968,30 @@
       pushOperationRunning = true;
       setPushUi("loading", "この端末のPush通知を停止しています。");
 
+      const fid = getStoredFid();
+      let serverUnregisterError = null;
+
       try {
+        if (fid) {
+          try {
+            await unregisterPushRegistrationFromServer(fid);
+          } catch (error) {
+            serverUnregisterError = error;
+            console.error("Push通知FIDのGAS登録解除に失敗しました。", error);
+          }
+        }
+
         await unregisterMessaging(messaging);
         clearPushRegistration();
-        setPushUi("disabled", "この端末では重要掲示のPush通知を停止しています。");
+
+        if (serverUnregisterError) {
+          setPushUi(
+            "disabled",
+            "この端末のFirebase通知は停止しました。サーバー側の登録解除確認だけ失敗しています。"
+          );
+        } else {
+          setPushUi("disabled", "この端末では重要掲示のPush通知を停止しています。");
+        }
       } catch (error) {
         console.error("Push通知の停止に失敗しました。", error);
         setPushUi("error", "Push通知の停止に失敗しました。再度お試しください。");
@@ -13886,15 +14030,9 @@
         messaging = getMessaging(firebaseApp);
 
         onRegistered(messaging, function (installationId) {
-          const fid = String(installationId || "").trim();
-          if (!fid) return;
-
-          savePushRegistration(fid);
-          setPushUi("enabled", "この端末は重要掲示のPush通知を受け取る設定です。");
-
-          window.dispatchEvent(new CustomEvent("umezono:fcm-registered", {
-            detail: { installationId: fid }
-          }));
+          handleRegisteredFid(installationId).catch(function (error) {
+            console.error("Firebase端末登録後の処理に失敗しました。", error);
+          });
         });
 
         onUnregistered(messaging, function (installationId) {
@@ -13920,7 +14058,7 @@
         }
 
         if (Notification.permission === "granted" && getStoredPushEnabled()) {
-          setPushUi("loading", "Push通知の端末登録を確認しています。");
+          setPushUi("loading", "Push通知の端末登録とサーバー登録を確認しています。");
           await registerMessaging(messaging, {
             vapidKey: FCM_VAPID_PUBLIC_KEY,
             serviceWorkerRegistration: serviceWorkerRegistration
