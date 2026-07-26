@@ -1,5 +1,14 @@
 <!DOCTYPE html>
 <!--
+  v2.1-7 重要掲示の新規投稿Push自動送信
+  - GAS v2.1-7で、新規保存した重要掲示を対象端末へ自動Push送信する。
+  - 全社向けは全Push登録端末、対象限定は端末側で保存した通知対象との一致端末だけに送る。
+  - 編集保存では再通知しない。掲載開始前・掲載終了後の新規掲示は保存時Pushを送らない。
+  - 掲示保存自体とPush送信を分離し、一部端末への送信失敗で掲示保存を失敗扱いにしない。
+  - 新規保存結果にPush送信件数を表示し、管理者が送信結果を確認できるようにする。
+  - Service Worker・オフラインキャッシュ変更なし。
+-->
+<!--
   v2.1-6 Push通知対象設定
   - Push登録済み端末ごとに、重要掲示の通知を受けたい所属/対象を複数選択できる設定画面を追加。
   - 対象候補はGASの _sys_department から取得し、全社(all)は選択肢から除外する。
@@ -120,7 +129,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1-6_work</title>
+  <title>梅園ポータル v2.1-7_work</title>
 
   <meta name="theme-color" content="#8b1e2d">
   <meta name="mobile-web-app-capable" content="yes">
@@ -5681,7 +5690,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-6_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-7_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -9054,6 +9063,7 @@
 
         const result = await gasRequest("createNotice", payload);
         const noticeId = result && result.notice_id ? String(result.notice_id) : "";
+        const pushDelivery = result && result.push_delivery ? result.push_delivery : null;
 
         form.reset();
         setAdminTargetCheckboxValues(["all"]);
@@ -9063,10 +9073,30 @@
         updateAdminFormStatus();
         await refreshAdminNoticeList();
 
-        setAdminFormMessage(
-          noticeId ? `掲示を保存しました。ID：${noticeId}` : "掲示を保存しました。",
-          "success"
-        );
+        let savedMessage = noticeId ? `掲示を保存しました。ID：${noticeId}` : "掲示を保存しました。";
+
+        if (payload.is_important && pushDelivery) {
+          const sentCount = Number(pushDelivery.sent_count || 0);
+          const eligibleCount = Number(pushDelivery.eligible_count || 0);
+          const failedCount = Number(pushDelivery.failed_count || 0);
+          const skipReason = String(pushDelivery.skip_reason || "");
+
+          if (sentCount > 0 || failedCount > 0) {
+            savedMessage += ` Push通知：${sentCount}/${eligibleCount}台送信`;
+            if (failedCount > 0) {
+              savedMessage += `（${failedCount}台失敗）`;
+            }
+            savedMessage += "。";
+          } else if (skipReason === "no_matching_subscriptions") {
+            savedMessage += " Push通知対象端末は0台でした。";
+          } else if (skipReason === "upcoming") {
+            savedMessage += " 掲載開始前のためPush通知はまだ送信していません。";
+          } else if (skipReason === "ended") {
+            savedMessage += " 掲載終了済みのためPush通知は送信していません。";
+          }
+        }
+
+        setAdminFormMessage(savedMessage, "success");
         showAdminSaveResult({
           noticeId: noticeId,
           isEditing: false
