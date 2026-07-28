@@ -1,4 +1,14 @@
 <!--
+  v2.2-2 投稿管理の社員番号・端末自動登録
+  - v2.2-1の一般社員向けパスワード、初回有効化コード、個別アカウント作成は採用しない。
+  - 掲示閲覧は認証不要のまま、投稿管理を初めて開く端末だけ社員番号を入力する。
+  - 在籍中・有効な社員番号をGASで確認後、端末専用のランダム認証情報を自動登録する。
+  - 登録情報はlocalStorageに保持し、2回目以降は入力なしで投稿管理を開く。
+  - 重要掲示・Push通知は登録済み社員全員が利用可能。
+  - 新規重要掲示は確認チェックを必須化し、対象・掲載開始日・通知時期・取消不可を強調する。
+  - Service Worker、Push通知受信、予約Push、対象別配信、掲示DB本体列は変更しない。
+-->
+<!--
   v2.1 complete 固定化
   - HTML v2.1-9_work（OGP / LINEリンクプレビュー改善まで）と GAS v2.1-10_work（予約Push日付判定修正まで）を固定保管版として整理。
   - 2026-07-28、Apps Script時間主導トリガーによる掲載開始日の予約PushがAndroid実機へ8時過ぎに正常到着することを確認済み。
@@ -148,7 +158,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1_complete</title>
+  <title>梅園ポータル v2.2-2_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -4498,6 +4508,103 @@
       height: 16px;
     }
 
+
+    .notice-board-auth-modal {
+      width: min(520px, calc(100vw - 28px));
+    }
+
+    .notice-board-auth-tabs {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 14px;
+      padding: 4px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-soft);
+    }
+
+    .notice-board-auth-tab {
+      min-height: 40px;
+      border: 1px solid transparent;
+      border-radius: 10px;
+      background: transparent;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 900;
+    }
+
+    .notice-board-auth-tab.is-active {
+      border-color: rgba(139, 30, 45, 0.18);
+      background: #fff;
+      color: var(--brand);
+      box-shadow: 0 4px 12px rgba(80, 45, 30, 0.08);
+    }
+
+    .notice-board-auth-form {
+      display: grid;
+      gap: 12px;
+    }
+
+    .notice-board-auth-form[hidden] {
+      display: none;
+    }
+
+    .notice-board-auth-help {
+      margin: 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+
+    .notice-board-auth-status {
+      min-height: 24px;
+      margin: 2px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1.6;
+    }
+
+    .notice-board-auth-status.is-error {
+      color: var(--danger);
+    }
+
+    .notice-board-auth-status.is-success {
+      color: #23653a;
+    }
+
+    .notice-board-auth-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 2px;
+    }
+
+    .admin-auth-summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .admin-auth-user {
+      display: inline-flex;
+      align-items: center;
+      min-height: 32px;
+      padding: 6px 10px;
+      border: 1px solid #c9e8d2;
+      border-radius: 999px;
+      background: #edf8f0;
+      color: #23653a;
+      font-size: 12px;
+      font-weight: 900;
+      line-height: 1.3;
+    }
+
     .danger-button {
       display: inline-flex;
       align-items: center;
@@ -5724,7 +5831,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1_complete</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.2-2_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -6123,6 +6230,10 @@
           <div>
             <h2 class="section-title screen-title">投稿管理</h2>
           </div>
+          <div class="admin-auth-summary" aria-label="投稿管理の端末登録状態">
+            <span id="admin-auth-user" class="admin-auth-user">端末登録確認中</span>
+            <button id="admin-auth-logout-button" class="small-button" type="button">端末登録を解除</button>
+          </div>
         </div>
 
         <p class="admin-screen-note">掲示の新規投稿、編集、公開／非公開の切替を行います。</p>
@@ -6457,7 +6568,7 @@
         <div class="delete-confirm-target">
           <div>
             <span class="delete-confirm-label">対象</span>
-            <span class="delete-confirm-title-text">投稿担当者向けの投稿管理</span>
+            <span class="delete-confirm-title-text">登録済み社員向けの投稿管理</span>
           </div>
         </div>
         <p id="admin-entry-confirm-message" class="delete-confirm-message">通常の確認だけであれば、下部ナビから掲示板・カレンダー・重要を利用してください。</p>
@@ -6468,6 +6579,38 @@
             投稿管理を開く
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="notice-board-auth-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal notice-board-auth-modal" role="dialog" aria-modal="true" aria-labelledby="notice-board-auth-title" aria-describedby="notice-board-auth-lead">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge" aria-hidden="true">
+            <i data-lucide="smartphone" class="admin-action-icon" aria-hidden="true"></i>
+          </span>
+          <h2 id="notice-board-auth-title" class="modal-title">この端末を投稿用に登録</h2>
+        </div>
+        <button id="notice-board-auth-close-button" class="modal-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="notice-board-auth-lead" class="delete-confirm-lead">初回だけ社員番号を入力します。登録後は、この端末から入力なしで投稿管理を利用できます。</p>
+
+        <form id="notice-board-auth-register-form" class="notice-board-auth-form" novalidate>
+          <div class="admin-field">
+            <label class="admin-label" for="notice-board-auth-employee-no">社員番号</label>
+            <input id="notice-board-auth-employee-no" class="admin-input" type="text" inputmode="numeric" autocomplete="off" required>
+          </div>
+          <p class="notice-board-auth-help">オフィスステーション勤怠の導入時に通知された社員番号を入力してください。社員番号はこの端末の登録時にだけ使用します。</p>
+          <div class="notice-board-auth-actions">
+            <button class="small-button" type="button" data-notice-board-auth-cancel>キャンセル</button>
+            <button id="notice-board-auth-register-button" class="primary-button" type="submit">端末を登録して開く</button>
+          </div>
+        </form>
+
+        <p id="notice-board-auth-status" class="notice-board-auth-status" role="status" aria-live="polite" aria-atomic="true"></p>
       </div>
     </div>
   </div>
@@ -6721,6 +6864,10 @@
           保存前に、公開対象・掲載期間・関連日・重要設定・本文を確認してください。
         </p>
         <div id="admin-save-preview" class="admin-save-preview"></div>
+        <label id="admin-save-important-confirm-guard" class="delete-confirm-guard" for="admin-save-important-confirm-check" hidden>
+          <input id="admin-save-important-confirm-check" type="checkbox">
+          <span id="admin-save-important-confirm-text">対象・掲載日・Push通知内容を確認しました</span>
+        </label>
         <p id="admin-save-confirm-message" class="delete-confirm-message" aria-live="polite"></p>
         <p id="admin-save-confirm-note" class="admin-save-confirm-note">
           内容に問題がなければ保存してください。修正する場合は「戻って修正」で保存せずフォームに戻れます。
@@ -6756,6 +6903,9 @@
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyOo2xtAX0Sj_p9z2JYIlajllJj4VfgMZ4txtWoUGZXjNGqL3k0Yz7sCvk8DQegECai/exec";
     const VIEW_STATE_STORAGE_KEY = "umezono-portal-v2.1-view-state";
     const READ_STATE_STORAGE_KEY = "umezono-portal-v2.1-read-state";
+    const NOTICE_BOARD_DEVICE_STORAGE_KEY = "umezono-portal-v2.2-notice-board-device";
+    const NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY = "umezono-portal-v2.2-registration-client";
+    const NOTICE_BOARD_AUTH_WRITE_ACTIONS = ["createNotice", "updateNotice", "updateNoticeStatus"];
 
     // v1.3-9: 梅園アプリ入口用。URLを設定すると、該当カードが「利用可」になります。
     const PORTAL_APP_LINKS = {
@@ -6787,6 +6937,12 @@
     let adminFormResetConfirmAction = null;
     let adminSaveConfirmContext = null;
     let adminEntryConfirmReturnFocusTarget = null;
+    let noticeBoardAuthReturnFocusTarget = null;
+    let noticeBoardAuthState = {
+      deviceCredential: "",
+      device: null,
+      user: null
+    };
 
     const sampleNotices = [
       {
@@ -7390,6 +7546,7 @@
       state.calendarMonthBase = getStartOfMonth(new Date());
       restorePersistedViewState();
       loadReadNoticeState();
+      loadNoticeBoardDeviceRegistration();
 
       renderToday();
       bindEvents();
@@ -7559,10 +7716,19 @@
         controller.abort();
       }, 30000);
 
+      const requestParams = { ...params };
+      if (NOTICE_BOARD_AUTH_WRITE_ACTIONS.includes(action)) {
+        if (!hasNoticeBoardAuthSession()) {
+          throw new Error("投稿管理のこの端末の投稿登録が必要です。");
+        }
+        requestParams.auth = buildNoticeBoardAuthPayload();
+        Object.assign(requestParams, getNoticeBoardDeviceMetadata());
+      }
+
       const requestBody = JSON.stringify({
         action: action,
         _ts: Date.now(),
-        ...params
+        ...requestParams
       });
 
       try {
@@ -7592,10 +7758,14 @@
           return result.data;
         }
 
+        const serverError = result && result.error ? result.error : "接続エラーが発生しました";
+        if (NOTICE_BOARD_AUTH_WRITE_ACTIONS.includes(action) && /この端末|投稿用に登録|投稿管理を利用できません/.test(String(serverError))) {
+          clearNoticeBoardDeviceRegistration();
+        }
         throw new Error(
           action +
           " の処理に失敗しました: " +
-          (result && result.error ? result.error : "接続エラーが発生しました")
+          serverError
         );
 
       } catch (error) {
@@ -7670,7 +7840,7 @@
 
       document.querySelectorAll("[data-admin-entry-button]").forEach(function (button) {
         button.addEventListener("click", function () {
-          openAdminEntryConfirmModal(button);
+          requestOpenAdminEntry(button);
         });
       });
 
@@ -8069,6 +8239,19 @@
         }
       });
 
+      document.getElementById("notice-board-auth-close-button").addEventListener("click", closeNoticeBoardAuthModal);
+      document.querySelectorAll("[data-notice-board-auth-cancel]").forEach(function (button) {
+        button.addEventListener("click", closeNoticeBoardAuthModal);
+      });
+      document.getElementById("notice-board-auth-modal").addEventListener("click", function (event) {
+        if (event.target.id === "notice-board-auth-modal") {
+          closeNoticeBoardAuthModal();
+        }
+      });
+      document.getElementById("notice-board-auth-register-form").addEventListener("submit", handleNoticeBoardDeviceRegistrationSubmit);
+      document.getElementById("admin-auth-logout-button").addEventListener("click", unregisterNoticeBoardDevice);
+
+
       document.getElementById("admin-bulk-hide-ended-confirm-close-button").addEventListener("click", closeAdminBulkHideEndedConfirmModal);
       document.getElementById("admin-bulk-hide-ended-confirm-cancel-button").addEventListener("click", closeAdminBulkHideEndedConfirmModal);
       document.getElementById("admin-bulk-hide-ended-confirm-execute-button").addEventListener("click", executeAdminBulkHideEndedConfirmAction);
@@ -8104,6 +8287,7 @@
       document.getElementById("admin-save-confirm-close-button").addEventListener("click", closeAdminSaveConfirmModal);
       document.getElementById("admin-save-confirm-cancel-button").addEventListener("click", closeAdminSaveConfirmModal);
       document.getElementById("admin-save-confirm-execute-button").addEventListener("click", executeAdminSaveConfirmAction);
+      document.getElementById("admin-save-important-confirm-check").addEventListener("change", updateAdminSaveConfirmExecuteButtonState);
 
       document.getElementById("admin-save-confirm-modal").addEventListener("click", function (event) {
         if (event.target.id === "admin-save-confirm-modal") {
@@ -8113,7 +8297,10 @@
 
       document.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
-          if (isAdminSaveConfirmModalOpen()) {
+          const authModal = document.getElementById("notice-board-auth-modal");
+          if (authModal && authModal.classList.contains("is-open")) {
+            closeNoticeBoardAuthModal();
+          } else if (isAdminSaveConfirmModalOpen()) {
             closeAdminSaveConfirmModal();
           } else if (isReadStateResetConfirmModalOpen()) {
             closeReadStateResetConfirmModal();
@@ -8267,6 +8454,252 @@
       });
     }
 
+
+    function loadNoticeBoardDeviceRegistration() {
+      try {
+        if (!("localStorage" in window)) return;
+        const rawValue = window.localStorage.getItem(NOTICE_BOARD_DEVICE_STORAGE_KEY);
+        if (!rawValue) return;
+        const saved = JSON.parse(rawValue);
+        if (!saved || typeof saved !== "object") return;
+        noticeBoardAuthState = {
+          deviceCredential: String(saved.deviceCredential || ""),
+          device: saved.device && typeof saved.device === "object" ? saved.device : null,
+          user: saved.user && typeof saved.user === "object" ? saved.user : null
+        };
+      } catch (error) {
+        console.warn("投稿管理の端末登録を復元できませんでした。", error);
+        clearNoticeBoardDeviceRegistration();
+      }
+      renderNoticeBoardAuthSummary();
+    }
+
+    function persistNoticeBoardDeviceRegistration() {
+      try {
+        if (!("localStorage" in window)) return;
+        if (!noticeBoardAuthState.deviceCredential) {
+          window.localStorage.removeItem(NOTICE_BOARD_DEVICE_STORAGE_KEY);
+          return;
+        }
+        window.localStorage.setItem(NOTICE_BOARD_DEVICE_STORAGE_KEY, JSON.stringify(noticeBoardAuthState));
+      } catch (error) {
+        console.warn("投稿管理の端末登録を保存できませんでした。", error);
+      }
+    }
+
+    function clearNoticeBoardDeviceRegistration() {
+      noticeBoardAuthState = {
+        deviceCredential: "",
+        device: null,
+        user: null
+      };
+      try {
+        if ("localStorage" in window) {
+          window.localStorage.removeItem(NOTICE_BOARD_DEVICE_STORAGE_KEY);
+        }
+      } catch (error) {
+        console.warn("投稿管理の端末登録を削除できませんでした。", error);
+      }
+      renderNoticeBoardAuthSummary();
+    }
+
+    function hasNoticeBoardAuthSession() {
+      return Boolean(noticeBoardAuthState && noticeBoardAuthState.deviceCredential);
+    }
+
+    function buildNoticeBoardAuthPayload() {
+      return {
+        device_credential: noticeBoardAuthState.deviceCredential || ""
+      };
+    }
+
+    function getNoticeBoardRegistrationClientId() {
+      try {
+        if (!("localStorage" in window)) return "";
+        let clientId = String(window.localStorage.getItem(NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY) || "");
+        if (clientId) return clientId;
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          clientId = window.crypto.randomUUID();
+        } else if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+          const values = new Uint32Array(4);
+          window.crypto.getRandomValues(values);
+          clientId = Array.from(values).map(function (value) { return value.toString(16).padStart(8, "0"); }).join("");
+        } else {
+          clientId = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+        }
+        window.localStorage.setItem(NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY, clientId);
+        return clientId;
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function getNoticeBoardDeviceMetadata() {
+      let displayMode = "browser";
+      if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
+        displayMode = "standalone";
+      } else if (window.navigator && window.navigator.standalone === true) {
+        displayMode = "standalone";
+      }
+
+      const platform = navigator.userAgentData && navigator.userAgentData.platform
+        ? String(navigator.userAgentData.platform)
+        : String(navigator.platform || "");
+
+      return {
+        registration_client_id: getNoticeBoardRegistrationClientId(),
+        display_mode: displayMode,
+        platform: platform,
+        language: String(navigator.language || ""),
+        user_agent: String(navigator.userAgent || "")
+      };
+    }
+
+    function applyNoticeBoardAuthResult(result) {
+      noticeBoardAuthState = {
+        deviceCredential: String(result && result.device_credential ? result.device_credential : noticeBoardAuthState.deviceCredential || ""),
+        device: result && result.device && typeof result.device === "object" ? result.device : null,
+        user: result && result.user && typeof result.user === "object" ? result.user : null
+      };
+      persistNoticeBoardDeviceRegistration();
+      renderNoticeBoardAuthSummary();
+    }
+
+    function renderNoticeBoardAuthSummary() {
+      const element = document.getElementById("admin-auth-user");
+      if (!element) return;
+      if (!hasNoticeBoardAuthSession()) {
+        element.textContent = "この端末は未登録";
+        return;
+      }
+      const user = noticeBoardAuthState.user || {};
+      const label = user.display_name || user.employee_no || "登録済み社員";
+      element.textContent = label + " の端末として登録済み";
+    }
+
+    function setNoticeBoardAuthStatus(message, type) {
+      const element = document.getElementById("notice-board-auth-status");
+      if (!element) return;
+      element.textContent = message || "";
+      element.className = "notice-board-auth-status" + (type ? " is-" + type : "");
+    }
+
+    function openNoticeBoardAuthModal(triggerElement) {
+      const modal = document.getElementById("notice-board-auth-modal");
+      if (!modal) return;
+      noticeBoardAuthReturnFocusTarget = triggerElement || document.activeElement;
+      setNoticeBoardAuthStatus("");
+      modal.classList.add("is-open");
+      modal.setAttribute("aria-hidden", "false");
+      renderIcons();
+      window.requestAnimationFrame(function () {
+        const input = document.getElementById("notice-board-auth-employee-no");
+        if (input) input.focus();
+      });
+    }
+
+    function closeNoticeBoardAuthModal(options) {
+      const modal = document.getElementById("notice-board-auth-modal");
+      if (!modal) return;
+      modal.classList.remove("is-open");
+      modal.setAttribute("aria-hidden", "true");
+      setNoticeBoardAuthStatus("");
+      const shouldRestoreFocus = !options || options.restoreFocus !== false;
+      if (shouldRestoreFocus && noticeBoardAuthReturnFocusTarget && typeof noticeBoardAuthReturnFocusTarget.focus === "function") {
+        noticeBoardAuthReturnFocusTarget.focus();
+      }
+      noticeBoardAuthReturnFocusTarget = null;
+    }
+
+    async function validateNoticeBoardAuthSession() {
+      if (!hasNoticeBoardAuthSession()) return false;
+      try {
+        const result = await gasRequest("validateNoticeBoardDevice", {
+          auth: buildNoticeBoardAuthPayload(),
+          ...getNoticeBoardDeviceMetadata()
+        });
+        applyNoticeBoardAuthResult(result);
+        return true;
+      } catch (error) {
+        const message = getErrorMessage(error);
+        if (/この端末|登録し直|利用できません/.test(message)) {
+          clearNoticeBoardDeviceRegistration();
+          return false;
+        }
+        throw error;
+      }
+    }
+
+    async function requestOpenAdminEntry(triggerElement) {
+      if (hasNoticeBoardAuthSession()) {
+        try {
+          const valid = await validateNoticeBoardAuthSession();
+          if (valid) {
+            openAdminEntryConfirmModal(triggerElement);
+            return;
+          }
+        } catch (error) {
+          window.alert("投稿管理の接続確認に失敗しました。通信状態を確認して再度お試しください。\n\n" + getErrorMessage(error));
+          return;
+        }
+      }
+      openNoticeBoardAuthModal(triggerElement);
+    }
+
+    async function handleNoticeBoardDeviceRegistrationSubmit(event) {
+      event.preventDefault();
+      const employeeNo = String(document.getElementById("notice-board-auth-employee-no").value || "").trim();
+      if (!employeeNo) {
+        setNoticeBoardAuthStatus("社員番号を入力してください。", "error");
+        return;
+      }
+
+      const button = document.getElementById("notice-board-auth-register-button");
+      button.disabled = true;
+      setNoticeBoardAuthStatus("社員番号と端末を確認しています。");
+      try {
+        const result = await gasRequest("registerNoticeBoardDevice", {
+          employee_no: employeeNo,
+          ...getNoticeBoardDeviceMetadata()
+        });
+        applyNoticeBoardAuthResult(result);
+        document.getElementById("notice-board-auth-employee-no").value = "";
+        setNoticeBoardAuthStatus("この端末を投稿用に登録しました。", "success");
+        const returnFocusTarget = noticeBoardAuthReturnFocusTarget;
+        closeNoticeBoardAuthModal({ restoreFocus: false });
+        openAdminEntryConfirmModal(returnFocusTarget);
+      } catch (error) {
+        setNoticeBoardAuthStatus(getErrorMessage(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function unregisterNoticeBoardDevice() {
+      const credential = noticeBoardAuthState.deviceCredential || "";
+      if (!credential) {
+        clearNoticeBoardDeviceRegistration();
+        switchAppScreen("portal");
+        return;
+      }
+
+      const confirmed = window.confirm("この端末の投稿登録を解除しますか？解除後は、再度社員番号の入力が必要です。");
+      if (!confirmed) return;
+
+      try {
+        await gasRequest("unregisterNoticeBoardDevice", {
+          auth: { device_credential: credential },
+          ...getNoticeBoardDeviceMetadata()
+        });
+      } catch (error) {
+        console.warn("投稿管理端末の登録解除をサーバーで確認できませんでした。", error);
+      } finally {
+        clearNoticeBoardDeviceRegistration();
+        resetAdminNoticeFormMode();
+        switchAppScreen("portal");
+      }
+    }
+
     function isAdminEntryConfirmModalOpen() {
       const modal = document.getElementById("admin-entry-confirm-modal");
       return Boolean(modal && modal.classList.contains("is-open"));
@@ -8308,6 +8741,11 @@
     }
 
     function executeAdminEntryConfirmAction() {
+      if (!hasNoticeBoardAuthSession()) {
+        closeAdminEntryConfirmModal({ restoreFocus: false });
+        openNoticeBoardAuthModal();
+        return;
+      }
       closeAdminEntryConfirmModal({ restoreFocus: false });
       switchAppScreen("admin");
     }
@@ -8331,6 +8769,10 @@
     }
 
     function switchAppScreen(screenName) {
+      if (screenName === "admin" && !hasNoticeBoardAuthSession()) {
+        screenName = "portal";
+      }
+
       const screens = {
         portal: document.getElementById("portal-screen"),
         home: document.getElementById("home-screen"),
@@ -8371,7 +8813,8 @@
       }
 
       if (activeScreen === "admin") {
-          renderAdminDataSourcePanel();
+        renderNoticeBoardAuthSummary();
+        renderAdminDataSourcePanel();
         renderAdminNoticeList();
       }
 
@@ -10733,21 +11176,28 @@
     }
 
     function openAdminSaveConfirmModal(form, payload, isEditing) {
+      const requiresImportantConfirmation = Boolean(!isEditing && payload.is_important);
+      const importantDeliveryInfo = getAdminImportantDeliveryConfirmationInfo(payload);
       adminSaveConfirmContext = {
         form: form,
         payload: payload,
-        isEditing: Boolean(isEditing)
+        isEditing: Boolean(isEditing),
+        requiresImportantConfirmation: requiresImportantConfirmation
       };
 
       setTextContent(
         "admin-save-confirm-title",
-        isEditing ? "変更を保存しますか？" : "掲示を保存しますか？"
+        requiresImportantConfirmation
+          ? importantDeliveryInfo.title
+          : (isEditing ? "変更を保存しますか？" : "掲示を保存しますか？")
       );
       setTextContent(
         "admin-save-confirm-lead",
-        isEditing
-          ? "変更内容を保存する前に、公開対象・掲載期間・関連日・重要設定・本文を確認してください。"
-          : "新規保存すると表示中の掲示として登録されます。公開対象・掲載期間・関連日・重要設定・本文を確認してください。"
+        requiresImportantConfirmation
+          ? importantDeliveryInfo.lead
+          : (isEditing
+            ? "変更内容を保存する前に、公開対象・掲載期間・関連日・重要設定・本文を確認してください。"
+            : "新規保存すると表示中の掲示として登録されます。公開対象・掲載期間・関連日・重要設定・本文を確認してください。")
       );
 
       const preview = document.getElementById("admin-save-preview");
@@ -10755,19 +11205,72 @@
         preview.innerHTML = buildAdminSavePreviewHtml(payload, isEditing);
       }
 
+      const guard = document.getElementById("admin-save-important-confirm-guard");
+      const guardCheck = document.getElementById("admin-save-important-confirm-check");
+      if (guard) guard.hidden = !requiresImportantConfirmation;
+      if (guardCheck) guardCheck.checked = false;
+      setTextContent("admin-save-important-confirm-text", importantDeliveryInfo.guardText);
+
       const executeButton = document.getElementById("admin-save-confirm-execute-button");
       if (executeButton) {
-        executeButton.innerHTML = '<i data-lucide="save" class="admin-action-icon" aria-hidden="true"></i><span>' + escapeHtml(isEditing ? "変更を保存する" : "保存する") + '</span>';
-        executeButton.disabled = false;
+        const buttonText = requiresImportantConfirmation
+          ? importantDeliveryInfo.buttonText
+          : (isEditing ? "変更を保存する" : "保存する");
+        executeButton.innerHTML = '<i data-lucide="save" class="admin-action-icon" aria-hidden="true"></i><span>' + escapeHtml(buttonText) + '</span>';
       }
 
       setTextContent("admin-save-confirm-message", "");
       setAdminSaveConfirmSubmitting(false);
+      updateAdminSaveConfirmExecuteButtonState();
 
       const modal = document.getElementById("admin-save-confirm-modal");
       modal.classList.add("is-open");
       modal.setAttribute("aria-hidden", "false");
       renderIcons();
+    }
+
+    function getAdminImportantDeliveryConfirmationInfo(payload) {
+      const targetText = getTargetText(payload.target_type) || "未設定";
+      const targetLabel = normalizeTargetValues(payload.target_type).includes("all")
+        ? "全社向け"
+        : `${targetText}向け`;
+      const todayKey = toDateKey(new Date());
+      const startDate = String(payload.start_date || "");
+      const endDate = String(payload.end_date || "");
+
+      if (startDate && startDate > todayKey) {
+        return {
+          title: "重要掲示を予約しますか？",
+          lead: `${targetLabel}の重要掲示です。掲載開始日の朝8時頃にPush通知されます。送信後の通知は取り消せません。`,
+          guardText: "対象・掲載開始日・予約Pushの内容を確認しました",
+          buttonText: "確認して重要掲示を予約"
+        };
+      }
+
+      if (endDate && endDate < todayKey) {
+        return {
+          title: "重要掲示として保存しますか？",
+          lead: `${targetLabel}の重要掲示です。掲載終了済みのためPush通知は送信されません。`,
+          guardText: "対象・掲載期間・重要設定を確認しました",
+          buttonText: "確認して重要掲示を保存"
+        };
+      }
+
+      return {
+        title: "重要掲示を投稿してPush通知しますか？",
+        lead: `${targetLabel}の登録端末へPush通知されます。通知は送信後に取り消せません。`,
+        guardText: "対象・掲載日・Push通知内容を確認しました",
+        buttonText: "確認して投稿・Push通知"
+      };
+    }
+
+    function updateAdminSaveConfirmExecuteButtonState() {
+      const executeButton = document.getElementById("admin-save-confirm-execute-button");
+      if (!executeButton) return;
+      const context = adminSaveConfirmContext;
+      const guardCheck = document.getElementById("admin-save-important-confirm-check");
+      const requiresConfirmation = Boolean(context && context.requiresImportantConfirmation);
+      executeButton.disabled = requiresConfirmation && !(guardCheck && guardCheck.checked);
     }
 
     function buildAdminSavePreviewHtml(payload, isEditing) {
@@ -10803,6 +11306,7 @@
             ${createAdminSavePreviewRow("関連日", relatedDateText)}
             ${createAdminSavePreviewRow("時刻", timeText)}
             ${createAdminSavePreviewRow("オプション", optionText)}
+            ${payload.is_important ? createAdminSavePreviewRow("Push通知", getAdminSavePreviewPushText(payload, isEditing)) : ""}
           </div>
         </div>
         <div class="admin-save-preview-section">
@@ -10829,6 +11333,16 @@
       return `終了時刻：${payload.event_end_time}`;
     }
 
+    function getAdminSavePreviewPushText(payload, isEditing) {
+      if (isEditing) return "編集保存では再通知しません";
+      const todayKey = toDateKey(new Date());
+      const startDate = String(payload.start_date || "");
+      const endDate = String(payload.end_date || "");
+      if (startDate && startDate > todayKey) return "掲載開始日の朝8時頃に予約通知";
+      if (endDate && endDate < todayKey) return "掲載終了済みのため通知なし";
+      return "保存直後に対象端末へ通知";
+    }
+
     function getAdminSavePreviewStatusText(isEditing) {
       if (!isEditing) return "公開中として保存（掲載期間内のみ閲覧側に表示）";
 
@@ -10845,6 +11359,10 @@
       modal.classList.remove("is-open");
       modal.setAttribute("aria-hidden", "true");
       adminSaveConfirmContext = null;
+      const guard = document.getElementById("admin-save-important-confirm-guard");
+      const guardCheck = document.getElementById("admin-save-important-confirm-check");
+      if (guard) guard.hidden = true;
+      if (guardCheck) guardCheck.checked = false;
       setAdminSaveConfirmSubmitting(false);
       setTextContent("admin-save-confirm-message", "");
     }
@@ -10857,6 +11375,16 @@
     async function executeAdminSaveConfirmAction() {
       const context = adminSaveConfirmContext;
       if (!context || !context.form || !context.payload) return;
+
+      if (context.requiresImportantConfirmation) {
+        const guardCheck = document.getElementById("admin-save-important-confirm-check");
+        if (!guardCheck || !guardCheck.checked) {
+          setTextContent("admin-save-confirm-message", "対象・掲載日・Push通知内容を確認し、チェックを入れてください。");
+          updateAdminSaveConfirmExecuteButtonState();
+          return;
+        }
+        context.payload.important_push_confirmed = true;
+      }
 
       setAdminSaveConfirmSubmitting(true);
       setTextContent("admin-save-confirm-message", context.isEditing ? "更新しています..." : "保存しています...");
@@ -10891,6 +11419,7 @@
           executeButton.innerHTML = executeButton.dataset.defaultHtml;
           delete executeButton.dataset.defaultHtml;
           renderIcons();
+          updateAdminSaveConfirmExecuteButtonState();
         }
       }
 
