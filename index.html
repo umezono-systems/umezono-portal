@@ -1,4 +1,14 @@
 <!--
+  v2.1 complete 固定化
+  - HTML v2.1-9_work（OGP / LINEリンクプレビュー改善まで）と GAS v2.1-10_work（予約Push日付判定修正まで）を固定保管版として整理。
+  - 2026-07-28、Apps Script時間主導トリガーによる掲載開始日の予約PushがAndroid実機へ8時過ぎに正常到着することを確認済み。
+  - 即時Push、対象別配信、通知タップで該当掲示表示、予約Pushの手動実行・自動実行を実機確認済み。
+  - 処理追加・DB変更なし。画面版表記のみ v2.1_complete に更新。
+  - v2.1系のlocalStorageキーは既読状態・Push登録状態を継続するため変更しない。
+  - manifest / PWAアイコン資産は v2.0 complete 固定版を継続利用する。
+  - v2.1 complete は固定保管版として直接編集しない。
+-->
+<!--
   v2.1-8 掲載開始日の重要掲示予約Push
   - GAS側に毎日8:00頃の時間主導トリガーを追加し、未来日で登録した重要掲示を掲載開始日にPush送信する。
   - 同日作成の重要掲示は従来どおり保存直後に送信し、予約処理との二重送信を防ぐ。
@@ -138,7 +148,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.1-9_work</title>
+  <title>梅園ポータル v2.1_complete</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -5714,7 +5724,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1-9_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.1_complete</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
