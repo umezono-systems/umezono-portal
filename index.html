@@ -1,4 +1,13 @@
 <!--
+  v2.2 complete 固定化
+  - v2.2-2_work の実機確認済み版を固定保管版として整理。
+  - 社員番号による初回端末登録、端末認証保持、通常投稿、重要掲示の確認強化、Push通知、既存掲示編集・非公開化を実機確認済み。
+  - 画面版表記のみ v2.2_complete に更新。
+  - 既読状態、Push登録状態、投稿端末登録状態を継続するため localStorage キーは変更しない。
+  - 処理追加なし、DB変更なし。
+  - v2.2 complete は固定保管版として直接編集しない。
+-->
+<!--
   v2.2-2 投稿管理の社員番号・端末自動登録
   - v2.2-1の一般社員向けパスワード、初回有効化コード、個別アカウント作成は採用しない。
   - 掲示閲覧は認証不要のまま、投稿管理を初めて開く端末だけ社員番号を入力する。
@@ -158,7 +167,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.2-2_work</title>
+  <title>梅園ポータル v2.2_complete</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -5831,7 +5840,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.2-2_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.2_complete</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
