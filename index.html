@@ -1,4 +1,13 @@
 <!--
+  v2.3-1 梅園レシピ帳カード追加
+  - v2.2 complete は固定保管版として直接編集せず、コピーして v2.3_work を開始。
+  - 梅園アプリ一覧の「梅園掲示板」と「タスク管理」の間に「梅園レシピ帳」を追加。
+  - 公開URLは https://umezono-systems.github.io/umezono-recipe-book/ を使用。
+  - カード画像は共通アセットの favicon_recipe.png を使用。
+  - 梅園レシピ帳はポータルと同一タブで開き、レシピ帳側の「梅園ポータルへ戻る」と往復できる構成。
+  - HTML側のみ変更。GAS・DB・Push通知・Service Worker・既存localStorageキーは変更しない。
+-->
+<!--
   v2.2 complete 固定化
   - v2.2-2_work の実機確認済み版を固定保管版として整理。
   - 社員番号による初回端末登録、端末認証保持、通常投稿、重要掲示の確認強化、Push通知、既存掲示編集・非公開化を実機確認済み。
@@ -167,7 +176,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.2_complete</title>
+  <title>梅園ポータル v2.3-1_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -5840,7 +5849,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.2_complete</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.3-1_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -5876,6 +5885,21 @@
               </span>
               <span class="portal-app-text">催事、健康診断、設備点検、製造連絡などを確認します。</span>
               <span class="portal-app-action">梅園掲示板を開く<i data-lucide="arrow-right" class="portal-app-action-icon" aria-hidden="true"></i></span>
+            </span>
+          </button>
+
+          <button class="portal-app-card" type="button" data-portal-app-link="recipeBook" data-portal-app-name="梅園レシピ帳" data-portal-app-open-label="梅園レシピ帳を開く" data-portal-app-waiting-label="URL設定後に有効化" data-portal-app-waiting-status="URL未設定" data-portal-app-open-mode="same-tab">
+            <span class="portal-app-icon-box">
+              <img id="portal-recipe-book-icon-image" class="portal-app-icon-image" data-portal-app-icon-image="recipeBook" src="https://umezono-systems.github.io/umezono-app-assets/favicon_recipe.png" alt="" aria-hidden="true" hidden>
+              <i id="portal-recipe-book-icon-lucide" data-portal-app-icon-lucide="recipeBook" data-lucide="book-open" class="portal-app-icon" aria-hidden="true"></i>
+            </span>
+            <span class="portal-app-main">
+              <span class="portal-app-head">
+                <span class="portal-app-title">梅園レシピ帳</span>
+                <span class="portal-app-status is-available">利用可</span>
+              </span>
+              <span class="portal-app-text">レシピの閲覧・検索・登録・編集を行います。</span>
+              <span class="portal-app-action">梅園レシピ帳を開く<i data-lucide="arrow-right" class="portal-app-action-icon" aria-hidden="true"></i></span>
             </span>
           </button>
 
@@ -6918,6 +6942,7 @@
 
     // v1.3-9: 梅園アプリ入口用。URLを設定すると、該当カードが「利用可」になります。
     const PORTAL_APP_LINKS = {
+      recipeBook: "https://umezono-systems.github.io/umezono-recipe-book/",
       taskManagement: "",
       commuteExpense: "",
       travelExpense: "https://umezono-systems.github.io/umezono-travel-expense/",
@@ -6927,6 +6952,7 @@
     // v1.3-9: 梅園アプリ入口用。画像URLを設定するとカードアイコンとして表示します。
     const PORTAL_APP_ICONS = {
       bbs: "https://umezono-systems.github.io/umezono-app-assets/favicon_bbs.png",
+      recipeBook: "https://umezono-systems.github.io/umezono-app-assets/favicon_recipe.png",
       taskManagement: "",
       commuteExpense: "",
       travelExpense: "https://umezono-systems.github.io/umezono-app-assets/favicon_travel.png"
@@ -8389,7 +8415,8 @@
           }
 
           if (action) {
-            action.innerHTML = escapeHtml(openLabel) + '<i data-lucide="external-link" class="portal-app-action-icon" aria-hidden="true"></i>';
+            const actionIcon = openMode === "same-tab" ? "arrow-right" : "external-link";
+            action.innerHTML = escapeHtml(openLabel) + '<i data-lucide="' + actionIcon + '" class="portal-app-action-icon" aria-hidden="true"></i>';
           }
         } else {
           button.disabled = true;
