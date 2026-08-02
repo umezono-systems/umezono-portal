@@ -1,4 +1,14 @@
 <!--
+  v2.3-2 初期表示待ち時間の軽減
+  - v2.3-1_work を基準に、GAS側処理・DB・Push通知・Service Workerは変更しない。
+  - 起動時の getMasterData / getNoticeList を直列取得から並行取得へ変更。
+  - 前回正常取得したマスタ・掲示データをlocalStorageへ保存し、次回起動時は先に表示してから最新データへ更新する。
+  - 前回データは24時間以内のみ即時表示に使用し、最新取得に失敗した場合は前回データを残して投稿・更新操作を停止する。
+  - getMasterData / getNoticeList / getNoticeDetail など読込系APIは、一時的な通信失敗・タイムアウト時だけ1回自動再試行する。
+  - createNotice / updateNotice / updateNoticeStatus など書込系APIは二重処理防止のため自動再試行しない。
+  - 既存の閲覧状態、Push登録状態、投稿端末登録状態のlocalStorageキーは変更しない。
+-->
+<!--
   v2.3-1 梅園レシピ帳カード追加
   - v2.2 complete は固定保管版として直接編集せず、コピーして v2.3_work を開始。
   - 梅園アプリ一覧の「梅園掲示板」と「タスク管理」の間に「梅園レシピ帳」を追加。
@@ -176,7 +186,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.3-1_work</title>
+  <title>梅園ポータル v2.3-2_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -398,6 +408,12 @@
       border-color: rgba(29, 79, 143, 0.18);
       background: #f5f9ff;
       color: #1d4f8f;
+    }
+
+    .connection-status.is-cached {
+      border-color: #ead27b;
+      background: #fff8df;
+      color: #735700;
     }
 
     .connection-status-icon {
@@ -5849,7 +5865,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.3-1_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.3-2_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -6938,7 +6954,18 @@
     const READ_STATE_STORAGE_KEY = "umezono-portal-v2.1-read-state";
     const NOTICE_BOARD_DEVICE_STORAGE_KEY = "umezono-portal-v2.2-notice-board-device";
     const NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY = "umezono-portal-v2.2-registration-client";
+    const INITIAL_DATA_CACHE_STORAGE_KEY = "umezono-portal-v2.3-initial-data-cache";
+    const INITIAL_DATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+    const GAS_READ_RETRY_DELAY_MS = 1200;
     const NOTICE_BOARD_AUTH_WRITE_ACTIONS = ["createNotice", "updateNotice", "updateNoticeStatus"];
+    const GAS_READ_RETRY_ACTIONS = [
+      "ping",
+      "getMasterData",
+      "getNoticeList",
+      "getNoticeDetail",
+      "validateNoticeBoardDevice",
+      "getPushSubscriptionSettings"
+    ];
 
     // v1.3-9: 梅園アプリ入口用。URLを設定すると、該当カードが「利用可」になります。
     const PORTAL_APP_LINKS = {
@@ -7517,6 +7544,88 @@
       return value === true || String(value).toLowerCase() === "true";
     }
 
+    function restoreInitialDataCache() {
+      try {
+        if (!("localStorage" in window)) return null;
+
+        const rawValue = window.localStorage.getItem(INITIAL_DATA_CACHE_STORAGE_KEY);
+        if (!rawValue) return null;
+
+        const cached = JSON.parse(rawValue);
+        const savedAt = Number(cached && cached.savedAt);
+        const masterData = cached && cached.masterData;
+        const notices = cached && cached.notices;
+
+        if (!savedAt || !masterData || typeof masterData !== "object" || !Array.isArray(notices)) {
+          window.localStorage.removeItem(INITIAL_DATA_CACHE_STORAGE_KEY);
+          return null;
+        }
+
+        const age = Date.now() - savedAt;
+        if (age < 0 || age > INITIAL_DATA_CACHE_MAX_AGE_MS) {
+          window.localStorage.removeItem(INITIAL_DATA_CACHE_STORAGE_KEY);
+          return null;
+        }
+
+        appMasterData = {
+          noticeTypes: Array.isArray(masterData.noticeTypes) ? masterData.noticeTypes : [],
+          noticeCategories: Array.isArray(masterData.noticeCategories) ? masterData.noticeCategories : [],
+          departments: Array.isArray(masterData.departments) ? masterData.departments : []
+        };
+        appNotices = notices.map(normalizeNotice);
+
+        return { savedAt: savedAt };
+      } catch (error) {
+        console.warn("前回取得データを復元できませんでした。", error);
+        return null;
+      }
+    }
+
+    function persistInitialDataCache() {
+      try {
+        if (!("localStorage" in window)) return;
+
+        window.localStorage.setItem(INITIAL_DATA_CACHE_STORAGE_KEY, JSON.stringify({
+          savedAt: Date.now(),
+          masterData: appMasterData,
+          notices: appNotices
+        }));
+      } catch (error) {
+        console.warn("取得データを端末へ保存できませんでした。", error);
+      }
+    }
+
+    function formatInitialDataCacheTime(savedAt) {
+      const date = new Date(Number(savedAt));
+      if (Number.isNaN(date.getTime())) return "前回";
+
+      return new Intl.DateTimeFormat("ja-JP", {
+        month: "numeric",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit"
+      }).format(date);
+    }
+
+    function renderAllDataViews() {
+      renderAdminFormSelects();
+      renderAdminDataSourcePanel();
+      renderHomeCategoryFilter();
+      renderHomeTargetFilter();
+      renderCalendarTargetFilter();
+      renderImportantTargetFilter();
+      syncFilterControlsFromState();
+      renderPortalLinks();
+      renderSummary();
+      renderHomeTodayCheckPanel();
+      renderWeekStrip();
+      renderNoticeList();
+      renderImportantNoticeList();
+      renderCalendarMonth();
+      renderAdminNoticeList();
+      syncReadStateResetButtons();
+    }
+
     function syncFilterControlsFromState() {
       document.querySelectorAll(".tab-button").forEach(function (tab) {
         tab.classList.toggle("is-active", tab.dataset.type === state.activeType);
@@ -7585,30 +7694,30 @@
 
       renderToday();
       bindEvents();
-      setConnectionStatus(
-        "loading",
-        "接続確認中",
-        "データを取得しています。"
-      );
 
-      await loadInitialData();
-      renderAdminFormSelects();
-      renderAdminDataSourcePanel();
-      renderHomeCategoryFilter();
-      renderHomeTargetFilter();
-      renderCalendarTargetFilter();
-      renderImportantTargetFilter();
-      syncFilterControlsFromState();
-      renderPortalLinks();
+      const initialDataCache = restoreInitialDataCache();
+      if (initialDataCache) {
+        const cacheTime = formatInitialDataCacheTime(initialDataCache.savedAt);
+        setConnectionStatus(
+          "loading",
+          "前回データ表示中",
+          cacheTime + "に取得したデータを先に表示し、最新情報を確認しています。"
+        );
+        renderAllDataViews();
+        switchAppScreen(state.activeScreen);
+      } else {
+        setConnectionStatus(
+          "loading",
+          "接続確認中",
+          "データを取得しています。"
+        );
+      }
 
-      renderSummary();
-      renderHomeTodayCheckPanel();
-      renderWeekStrip();
-      renderNoticeList();
-      renderImportantNoticeList();
-      renderCalendarMonth();
-      renderAdminNoticeList();
-      syncReadStateResetButtons();
+      await loadInitialData({
+        hasCache: Boolean(initialDataCache),
+        cacheSavedAt: initialDataCache ? initialDataCache.savedAt : 0
+      });
+      renderAllDataViews();
       switchAppScreen(state.activeScreen);
       openInitialNoticeFromLocation();
     }
@@ -7669,7 +7778,10 @@
       }
     }
 
-    async function loadInitialData() {
+    async function loadInitialData(options = {}) {
+      const hasCache = Boolean(options.hasCache);
+      const cacheSavedAt = Number(options.cacheSavedAt || 0);
+
       if (!GAS_API_URL || GAS_API_URL.indexOf("ここにGAS") !== -1) {
         appNotices = sampleNotices.map(normalizeNotice);
         setConnectionStatus(
@@ -7681,22 +7793,39 @@
       }
 
       try {
-        const masterData = await gasRequest("getMasterData");
-        const notices = await gasRequest("getNoticeList");
+        const results = await Promise.all([
+          gasRequest("getMasterData"),
+          gasRequest("getNoticeList")
+        ]);
+        const masterData = results[0];
+        const notices = results[1];
 
         appMasterData = masterData || appMasterData;
         appNotices = Array.isArray(notices)
           ? notices.map(normalizeNotice)
           : [];
+        persistInitialDataCache();
 
         setConnectionStatus(
           "connected",
           "GAS接続済み",
-          "スプレッドシートから取得した掲示データを表示しています。"
+          "スプレッドシートから取得した最新の掲示データを表示しています。"
         );
 
       } catch (error) {
         const errorMessage = getErrorMessage(error);
+
+        if (hasCache) {
+          const cacheTime = formatInitialDataCacheTime(cacheSavedAt);
+          console.error("最新データの取得に失敗したため、前回取得データを維持します。", errorMessage, error);
+          setConnectionStatus(
+            "cached",
+            "前回データ表示中",
+            "最新情報を取得できなかったため、" + cacheTime + "に取得したデータを表示しています。投稿・更新はできません。"
+          );
+          return;
+        }
+
         console.error("実データの取得に失敗しました。確認用サンプルを表示します。", errorMessage, error);
         appNotices = sampleNotices.map(normalizeNotice);
         setConnectionStatus(
@@ -7741,11 +7870,34 @@
 
     function getConnectionStatusIcon(status) {
       if (status === "connected") return "wifi";
+      if (status === "cached") return "history";
       if (status === "sample" || status === "error") return "wifi-off";
       return "loader-2";
     }
 
     async function gasRequest(action, params = {}) {
+      const maxAttempts = GAS_READ_RETRY_ACTIONS.includes(action) ? 2 : 1;
+      let lastError = null;
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        try {
+          return await gasRequestOnce(action, params);
+        } catch (error) {
+          lastError = error;
+
+          if (attempt >= maxAttempts || !shouldRetryGasRequest(error)) {
+            throw error;
+          }
+
+          console.warn(action + " の読込通信を再試行します。", error);
+          await waitForGasRetry(GAS_READ_RETRY_DELAY_MS);
+        }
+      }
+
+      throw lastError || new Error(action + " の通信に失敗しました");
+    }
+
+    async function gasRequestOnce(action, params = {}) {
       const controller = new AbortController();
       const timeoutId = window.setTimeout(function () {
         controller.abort();
@@ -7773,7 +7925,9 @@
             "Content-Type": "text/plain;charset=utf-8"
           },
           body: requestBody,
-          signal: controller.signal
+          signal: controller.signal,
+          redirect: "follow",
+          cache: "no-store"
         });
 
         if (!response.ok) {
@@ -7812,6 +7966,25 @@
       } finally {
         window.clearTimeout(timeoutId);
       }
+    }
+
+    function shouldRetryGasRequest(error) {
+      if (!error) return false;
+      if (error.name === "TypeError") return true;
+
+      const message = String(error.message || error || "");
+      return (
+        /タイムアウト/.test(message) ||
+        /Failed to fetch|NetworkError|Load failed|fetch failed/i.test(message) ||
+        /接続に失敗しました。status=5\d\d/.test(message) ||
+        /GASからJSON以外の応答/.test(message)
+      );
+    }
+
+    function waitForGasRetry(delayMs) {
+      return new Promise(function (resolve) {
+        window.setTimeout(resolve, Math.max(0, Number(delayMs) || 0));
+      });
     }
 
     // Firebase module側からも既存のGAS POST処理を再利用する。
@@ -8937,6 +9110,17 @@
         };
       }
 
+      if (state.dataSource === "cached") {
+        return {
+          isVisible: true,
+          panelClass: "is-warning",
+          badgeClass: "is-warning",
+          badgeLabel: "前回データ",
+          text: "最新データを取得できなかったため、端末に保存された前回データを表示しています。",
+          note: "内容が最新とは限らないため、復旧まで保存・編集・公開切替・削除操作を止めています。"
+        };
+      }
+
       return {
         isVisible: true,
         panelClass: "",
@@ -8958,6 +9142,10 @@
 
       if (state.dataSource === "error") {
         return "実データを取得できていないため、保存・編集・公開切替・削除はできません。";
+      }
+
+      if (state.dataSource === "cached") {
+        return "前回取得データを表示中のため、最新接続が確認できるまで保存・編集・公開切替・削除はできません。";
       }
 
       if (state.dataSource === "loading") {
