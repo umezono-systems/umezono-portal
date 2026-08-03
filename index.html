@@ -1,4 +1,15 @@
 <!--
+  v2.3 complete 固定化
+  - v2.3-2_work の実機確認済み版を固定保管版として整理。
+  - 梅園アプリ一覧へ「梅園レシピ帳」カードを追加し、掲示板とタスク管理の間へ配置。
+  - 初期表示時の getMasterData / getNoticeList を並行取得へ変更。
+  - 前回正常取得データの先行表示、バックグラウンド更新、読込系APIの限定再試行を追加。
+  - 書込系APIは二重処理防止のため自動再試行しない。
+  - GAS・DB・Push通知・Service Worker・既存localStorageキーは変更しない。
+  - 画面版表記のみ v2.3_complete に更新。
+  - v2.3 complete は固定保管版として直接編集しない。
+-->
+<!--
   v2.3-2 初期表示待ち時間の軽減
   - v2.3-1_work を基準に、GAS側処理・DB・Push通知・Service Workerは変更しない。
   - 起動時の getMasterData / getNoticeList を直列取得から並行取得へ変更。
@@ -186,7 +197,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.3-2_work</title>
+  <title>梅園ポータル v2.3_complete</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -5865,7 +5876,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.3-2_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.3_complete</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
