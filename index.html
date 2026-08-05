@@ -1,4 +1,12 @@
 <!--
+  v2.4-2 共通アカウント設定カードの画像アイコン設定
+  - v2.4 complete は固定保管版として直接編集せず、コピーして v2.4_work を再開。
+  - 共通アカウント設定カードのLucideキーアイコンを、共通アセット favicon_account.png へ変更。
+  - 画像URLは https://umezono-systems.github.io/umezono-app-assets/favicon_account.png を使用。
+  - 画像の読込に失敗した場合は従来の key-round アイコンへ自動フォールバックする。
+  - HTML側のみ変更。GAS・DB・Push通知・Service Worker・既存localStorageキーは変更しない。
+-->
+<!--
   v2.4 complete 固定化
   - v2.4-1_work の実機確認済み版を固定保管版として整理。
   - 梅園アプリ一覧の旅費精算カードの隣に「共通アカウント設定」カードを追加。
@@ -217,7 +225,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.4_complete</title>
+  <title>梅園ポータル v2.4-2_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -5896,7 +5904,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.4_complete</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.4-2_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -5995,7 +6003,8 @@
 
           <button class="portal-app-card" type="button" data-portal-app-link="commonAccount" data-portal-app-name="共通アカウント設定" data-portal-app-open-label="共通アカウント設定を開く" data-portal-app-waiting-label="URL設定後に有効化" data-portal-app-waiting-status="URL未設定" data-portal-app-open-mode="same-tab">
             <span class="portal-app-icon-box">
-              <i data-lucide="key-round" class="portal-app-icon" aria-hidden="true"></i>
+              <img id="portal-common-account-icon-image" class="portal-app-icon-image" data-portal-app-icon-image="commonAccount" src="https://umezono-systems.github.io/umezono-app-assets/favicon_account.png" alt="" aria-hidden="true" hidden>
+              <i id="portal-common-account-icon-lucide" data-portal-app-icon-lucide="commonAccount" data-lucide="key-round" class="portal-app-icon" aria-hidden="true"></i>
             </span>
             <span class="portal-app-main">
               <span class="portal-app-head">
@@ -7028,7 +7037,8 @@
       recipeBook: "https://umezono-systems.github.io/umezono-app-assets/favicon_recipe.png",
       taskManagement: "",
       commuteExpense: "",
-      travelExpense: "https://umezono-systems.github.io/umezono-app-assets/favicon_travel.png"
+      travelExpense: "https://umezono-systems.github.io/umezono-app-assets/favicon_travel.png",
+      commonAccount: "https://umezono-systems.github.io/umezono-app-assets/favicon_account.png"
     };
 
     let appMasterData = {
