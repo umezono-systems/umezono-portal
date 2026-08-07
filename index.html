@@ -1,4 +1,22 @@
 <!--
+  v2.5-2a パスワード変更リンク余白調整
+  - v2.5-2_work を基準に、初回認証画面の「パスワード変更」リンクへ左右余白を追加。
+  - スマホ表示で文字と枠が窮屈に見えないよう調整。
+  - 認証処理・GAS・DB・Push通知・Service Worker・localStorageキーは変更しない。
+-->
+<!--
+  v2.5-2 初回自動設定・共有アカウント対応
+  - v2.5-1_workを基準に、利用者へ「初回/既存」の選択を求めない認証フローへ変更。
+  - 個人利用は社員番号だけを最初に入力し、GASが社員・共通アカウント状態を自動判定する。
+  - 共通アカウント未発行なら初回アクセス時に自動作成し、初回設定待ちならその場で新しいパスワードを設定する。
+  - 初回設定完了と同時に端末認証を発行し、2回目以降は端末トークンで自動認証する。
+  - 設定済み個人アカウントは社員番号＋パスワードで端末認証する。
+  - 店舗タブレット・共用PC向けの共有アカウント入口を追加し、管理者が設定済みの共有アカウントで端末認証できる。
+  - 共有アカウントは閲覧専用とし、投稿管理は個人アカウントのnotice_board権限をGAS側で確認する。
+  - 退職・社員無効・アカウント停止・パスワード変更後の旧端末認証は閲覧停止する。
+  - Push通知、Service Worker、manifest、既存の既読・表示・Push・初期データキャッシュ用localStorageキーは変更しない。
+-->
+<!--
   v2.4-2 共通アカウント設定カードの画像アイコン設定
   - v2.4 complete は固定保管版として直接編集せず、コピーして v2.4_work を再開。
   - 共通アカウント設定カードのLucideキーアイコンを、共通アセット favicon_account.png へ変更。
@@ -225,7 +243,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.4-2_work</title>
+  <title>梅園ポータル v2.5-2a_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -4582,80 +4600,127 @@
     }
 
 
-    .notice-board-auth-modal {
-      width: min(520px, calc(100vw - 28px));
-    }
-
-    .notice-board-auth-tabs {
+    .portal-auth-gate {
+      position: fixed;
+      inset: 0;
+      z-index: 5000;
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 8px;
-      margin-bottom: 14px;
-      padding: 4px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: var(--surface-soft);
+      place-items: center;
+      min-height: 100dvh;
+      padding: 22px;
+      overflow-y: auto;
+      background:
+        radial-gradient(circle at top left, rgba(139, 30, 45, 0.15), transparent 38%),
+        linear-gradient(180deg, #fbf7f2 0%, #f7f3ee 100%);
     }
 
-    .notice-board-auth-tab {
-      min-height: 40px;
-      border: 1px solid transparent;
-      border-radius: 10px;
-      background: transparent;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 900;
-    }
-
-    .notice-board-auth-tab.is-active {
-      border-color: rgba(139, 30, 45, 0.18);
-      background: #fff;
-      color: var(--brand);
-      box-shadow: 0 4px 12px rgba(80, 45, 30, 0.08);
-    }
-
-    .notice-board-auth-form {
-      display: grid;
-      gap: 12px;
-    }
-
-    .notice-board-auth-form[hidden] {
+    .portal-auth-gate[hidden] {
       display: none;
     }
 
-    .notice-board-auth-help {
-      margin: 0;
-      color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      line-height: 1.7;
+    .portal-auth-card {
+      width: min(460px, 100%);
+      padding: 26px;
+      border: 1px solid rgba(139, 30, 45, 0.15);
+      border-radius: 24px;
+      background: rgba(255, 255, 255, 0.96);
+      box-shadow: 0 18px 48px rgba(80, 45, 30, 0.16);
     }
 
-    .notice-board-auth-status {
+    .portal-auth-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .portal-auth-brand-icon {
+      width: 48px;
+      height: 48px;
+      object-fit: contain;
+    }
+
+    .portal-auth-title {
+      margin: 0;
+      color: var(--brand);
+      font-size: 24px;
+      font-weight: 900;
+      line-height: 1.3;
+    }
+
+    .portal-auth-subtitle {
+      margin: 3px 0 0;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .portal-auth-lead {
+      margin: 0 0 18px;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.75;
+    }
+
+    .portal-auth-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .portal-auth-actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .portal-auth-submit {
+      width: 100%;
+      min-height: 48px;
+    }
+
+    .portal-auth-status {
       min-height: 24px;
-      margin: 2px 0 0;
+      margin: 12px 0 0;
       color: var(--muted);
       font-size: 12px;
       font-weight: 800;
       line-height: 1.6;
     }
 
-    .notice-board-auth-status.is-error {
+    .portal-auth-status.is-error {
       color: var(--danger);
     }
 
-    .notice-board-auth-status.is-success {
+    .portal-auth-status.is-success {
       color: #23653a;
     }
 
-    .notice-board-auth-actions {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-      gap: 8px;
-      margin-top: 2px;
+    .portal-auth-settings-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 42px;
+      padding: 8px 14px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      color: var(--brand);
+      font-size: 13px;
+      font-weight: 900;
+      text-decoration: none;
+      background: var(--surface-soft);
     }
 
+    .portal-auth-note {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+
+    .portal-user-summary,
     .admin-auth-summary {
       display: flex;
       flex-wrap: wrap;
@@ -4664,16 +4729,17 @@
       gap: 8px;
     }
 
+    .portal-auth-user,
     .admin-auth-user {
       display: inline-flex;
       align-items: center;
-      min-height: 32px;
-      padding: 6px 10px;
+      min-height: 30px;
+      padding: 5px 9px;
       border: 1px solid #c9e8d2;
       border-radius: 999px;
       background: #edf8f0;
       color: #23653a;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 900;
       line-height: 1.3;
     }
@@ -5891,24 +5957,221 @@
       }
     }
 
+    .portal-auth-step[hidden],
+    .portal-auth-shared-panel[hidden] {
+      display: none !important;
+    }
+
+    .portal-auth-user-card {
+      display: grid;
+      gap: 4px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-md);
+      background: var(--surface-soft);
+    }
+
+    .portal-auth-user-card strong {
+      font-size: 16px;
+      color: var(--text);
+    }
+
+    .portal-auth-user-card span {
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+
+    .portal-auth-step-title {
+      margin: 2px 0 0;
+      font-size: 17px;
+      line-height: 1.5;
+      color: var(--brand);
+    }
+
+    .portal-auth-step-text {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.7;
+      color: var(--muted);
+    }
+
+    .portal-auth-secondary-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 12px;
+      align-items: center;
+      justify-content: center;
+      margin-top: 14px;
+    }
+
+    .portal-auth-link-button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 4px 2px;
+      color: var(--brand);
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      cursor: pointer;
+    }
+
+    .portal-auth-shared-panel {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+      padding: 14px;
+      border: 1px dashed rgba(139, 30, 45, 0.28);
+      border-radius: var(--radius-md);
+      background: rgba(255, 249, 244, 0.72);
+    }
+
+    .portal-auth-shared-title {
+      margin: 0;
+      font-size: 15px;
+      color: var(--brand);
+    }
+
+    .portal-auth-shared-note {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.65;
+      color: var(--muted);
+    }
+
   </style>
 
   <script src="https://unpkg.com/lucide@latest"></script>
 </head>
 
 <body>
-  <div class="app">
+  <section id="portal-auth-gate" class="portal-auth-gate" aria-labelledby="portal-auth-title">
+    <div class="portal-auth-card">
+      <div class="portal-auth-brand">
+        <img class="portal-auth-brand-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">
+        <div>
+          <h1 id="portal-auth-title" class="portal-auth-title">梅園ポータル</h1>
+          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-2a_work</p>
+        </div>
+      </div>
+
+      <div id="portal-auth-identify-step" class="portal-auth-step">
+        <p class="portal-auth-lead">社員番号を入力してください。初めて利用する場合も、登録済みの場合も、あとは画面が自動で案内します。</p>
+        <form id="portal-auth-identify-form" class="portal-auth-form" novalidate>
+          <div class="admin-field">
+            <label class="admin-label" for="portal-auth-employee-no">社員番号</label>
+            <input id="portal-auth-employee-no" class="admin-input" type="text" inputmode="numeric" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div class="portal-auth-actions">
+            <button id="portal-auth-identify-button" class="primary-button portal-auth-submit" type="submit">
+              <i data-lucide="arrow-right" class="admin-action-icon" aria-hidden="true"></i>
+              次へ
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <div id="portal-auth-individual-step" class="portal-auth-step" hidden>
+        <div class="portal-auth-user-card">
+          <strong id="portal-auth-person-name">社員</strong>
+          <span id="portal-auth-person-no"></span>
+        </div>
+
+        <form id="portal-auth-first-setup-form" class="portal-auth-form" hidden novalidate>
+          <h2 class="portal-auth-step-title">初めてのご利用です</h2>
+          <p class="portal-auth-step-text">このポータルで使うパスワードを設定してください。設定が終わると、この端末はそのまま利用できるようになります。</p>
+          <div class="admin-field">
+            <label class="admin-label" for="portal-auth-new-password">新しいパスワード</label>
+            <input id="portal-auth-new-password" class="admin-input" type="password" autocomplete="new-password" minlength="8" maxlength="64" required>
+          </div>
+          <div class="admin-field">
+            <label class="admin-label" for="portal-auth-new-password-confirm">新しいパスワード（確認）</label>
+            <input id="portal-auth-new-password-confirm" class="admin-input" type="password" autocomplete="new-password" minlength="8" maxlength="64" required>
+          </div>
+          <div class="portal-auth-actions">
+            <button id="portal-auth-first-setup-button" class="primary-button portal-auth-submit" type="submit">
+              <i data-lucide="check-circle-2" class="admin-action-icon" aria-hidden="true"></i>
+              設定してポータルを開く
+            </button>
+          </div>
+        </form>
+
+        <form id="portal-auth-password-form" class="portal-auth-form" hidden novalidate>
+          <h2 class="portal-auth-step-title">パスワードを入力してください</h2>
+          <p class="portal-auth-step-text">この端末では初回のため、パスワード確認後に端末を登録します。次回から入力は不要です。</p>
+          <div class="admin-field">
+            <label class="admin-label" for="portal-auth-password">パスワード</label>
+            <input id="portal-auth-password" class="admin-input" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="portal-auth-actions">
+            <button id="portal-auth-password-button" class="primary-button portal-auth-submit" type="submit">
+              <i data-lucide="log-in" class="admin-action-icon" aria-hidden="true"></i>
+              ログインしてポータルを開く
+            </button>
+          </div>
+        </form>
+
+        <div class="portal-auth-secondary-actions">
+          <button id="portal-auth-back-button" class="portal-auth-link-button" type="button">社員番号を入力し直す</button>
+        </div>
+      </div>
+
+      <p id="portal-auth-status" class="portal-auth-status" role="status" aria-live="polite" aria-atomic="true"></p>
+
+      <div class="portal-auth-secondary-actions">
+        <button id="portal-auth-shared-toggle-button" class="portal-auth-link-button" type="button">
+          店舗・共有端末を設定する
+        </button>
+        <a class="portal-auth-settings-link" href="https://umezono-systems.github.io/employee-master/common-account/">
+          <i data-lucide="key-round" class="admin-action-icon" aria-hidden="true"></i>
+          パスワード変更
+        </a>
+      </div>
+
+      <div id="portal-auth-shared-panel" class="portal-auth-shared-panel" hidden>
+        <h2 class="portal-auth-shared-title">店舗・共有端末の初期設定</h2>
+        <p class="portal-auth-shared-note">管理者が用意した共有アカウントを設定します。通常の個人利用ではこの操作は不要です。</p>
+        <form id="portal-auth-shared-form" class="portal-auth-form" novalidate>
+          <div class="admin-field">
+            <label class="admin-label" for="portal-auth-shared-login-id">共有ログインID</label>
+            <input id="portal-auth-shared-login-id" class="admin-input" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+          </div>
+          <div class="admin-field">
+            <label class="admin-label" for="portal-auth-shared-password">共有パスワード</label>
+            <input id="portal-auth-shared-password" class="admin-input" type="password" autocomplete="current-password" required>
+          </div>
+          <div class="portal-auth-actions">
+            <button id="portal-auth-shared-button" class="primary-button portal-auth-submit" type="submit">
+              <i data-lucide="tablet-smartphone" class="admin-action-icon" aria-hidden="true"></i>
+              この端末を共有端末として設定
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <p class="portal-auth-note">退職・社員情報無効・アカウント停止時は、端末認証が残っていても利用できません。共有端末から投稿管理は利用できません。</p>
+    </div>
+  </section>
+
+  <div id="portal-app-shell" class="app" hidden>
     <header class="top-header">
       <div class="title-block">
         <div class="title-row">
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.4-2_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-2a_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
             <span id="connection-status-text" class="connection-status-text sr-only">データを取得しています。</span>
+          </div>
+          <div class="portal-user-summary" aria-label="ポータル認証状態">
+            <span id="portal-auth-user" class="portal-auth-user">認証確認中</span>
+            <button id="portal-auth-logout-button" class="small-button" type="button">ログアウト</button>
           </div>
         </div>
       </div>
@@ -6333,9 +6596,9 @@
           <div>
             <h2 class="section-title screen-title">投稿管理</h2>
           </div>
-          <div class="admin-auth-summary" aria-label="投稿管理の端末登録状態">
-            <span id="admin-auth-user" class="admin-auth-user">端末登録確認中</span>
-            <button id="admin-auth-logout-button" class="small-button" type="button">端末登録を解除</button>
+          <div class="admin-auth-summary" aria-label="投稿管理の権限状態">
+            <span id="admin-auth-user" class="admin-auth-user">投稿権限確認中</span>
+            <button id="admin-auth-logout-button" class="small-button" type="button">ポータルからログアウト</button>
           </div>
         </div>
 
@@ -6632,7 +6895,7 @@
     </main>
   </div>
 
-  <nav class="bottom-nav" aria-label="下部ナビゲーション">
+  <nav id="portal-bottom-nav" class="bottom-nav" aria-label="下部ナビゲーション" hidden>
     <div class="bottom-nav-inner">
       <button class="nav-button is-active" type="button" data-screen-target="portal" aria-current="page" aria-label="アプリ画面を表示">
         <i data-lucide="layout-dashboard" class="nav-icon" aria-hidden="true"></i>
@@ -6671,7 +6934,7 @@
         <div class="delete-confirm-target">
           <div>
             <span class="delete-confirm-label">対象</span>
-            <span class="delete-confirm-title-text">登録済み社員向けの投稿管理</span>
+            <span class="delete-confirm-title-text">投稿権限を持つ共通アカウント向け</span>
           </div>
         </div>
         <p id="admin-entry-confirm-message" class="delete-confirm-message">通常の確認だけであれば、下部ナビから掲示板・カレンダー・重要を利用してください。</p>
@@ -6686,37 +6949,6 @@
     </div>
   </div>
 
-
-  <div id="notice-board-auth-modal" class="modal-backdrop" aria-hidden="true">
-    <div class="modal notice-board-auth-modal" role="dialog" aria-modal="true" aria-labelledby="notice-board-auth-title" aria-describedby="notice-board-auth-lead">
-      <div class="modal-header">
-        <div class="modal-title-wrap">
-          <span class="modal-badge" aria-hidden="true">
-            <i data-lucide="smartphone" class="admin-action-icon" aria-hidden="true"></i>
-          </span>
-          <h2 id="notice-board-auth-title" class="modal-title">この端末を投稿用に登録</h2>
-        </div>
-        <button id="notice-board-auth-close-button" class="modal-close" type="button" aria-label="閉じる">×</button>
-      </div>
-      <div class="modal-body">
-        <p id="notice-board-auth-lead" class="delete-confirm-lead">初回だけ社員番号を入力します。登録後は、この端末から入力なしで投稿管理を利用できます。</p>
-
-        <form id="notice-board-auth-register-form" class="notice-board-auth-form" novalidate>
-          <div class="admin-field">
-            <label class="admin-label" for="notice-board-auth-employee-no">社員番号</label>
-            <input id="notice-board-auth-employee-no" class="admin-input" type="text" inputmode="numeric" autocomplete="off" required>
-          </div>
-          <p class="notice-board-auth-help">オフィスステーション勤怠の導入時に通知された社員番号を入力してください。社員番号はこの端末の登録時にだけ使用します。</p>
-          <div class="notice-board-auth-actions">
-            <button class="small-button" type="button" data-notice-board-auth-cancel>キャンセル</button>
-            <button id="notice-board-auth-register-button" class="primary-button" type="submit">端末を登録して開く</button>
-          </div>
-        </form>
-
-        <p id="notice-board-auth-status" class="notice-board-auth-status" role="status" aria-live="polite" aria-atomic="true"></p>
-      </div>
-    </div>
-  </div>
 
   <div id="detail-modal" class="modal-backdrop" aria-hidden="true">
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-meta modal-text">
@@ -7006,18 +7238,25 @@
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbyOo2xtAX0Sj_p9z2JYIlajllJj4VfgMZ4txtWoUGZXjNGqL3k0Yz7sCvk8DQegECai/exec";
     const VIEW_STATE_STORAGE_KEY = "umezono-portal-v2.1-view-state";
     const READ_STATE_STORAGE_KEY = "umezono-portal-v2.1-read-state";
-    const NOTICE_BOARD_DEVICE_STORAGE_KEY = "umezono-portal-v2.2-notice-board-device";
-    const NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY = "umezono-portal-v2.2-registration-client";
+    const PORTAL_DEVICE_AUTH_STORAGE_KEY = "umezono-portal-v2.5-device-auth";
+    const PORTAL_DEVICE_CLIENT_STORAGE_KEY = "umezono-portal-v2.5-device-client";
+    const LEGACY_NOTICE_BOARD_DEVICE_STORAGE_KEY = "umezono-portal-v2.2-notice-board-device";
     const INITIAL_DATA_CACHE_STORAGE_KEY = "umezono-portal-v2.3-initial-data-cache";
     const INITIAL_DATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
     const GAS_READ_RETRY_DELAY_MS = 1200;
-    const NOTICE_BOARD_AUTH_WRITE_ACTIONS = ["createNotice", "updateNotice", "updateNoticeStatus"];
+    const PORTAL_AUTH_PUBLIC_ACTIONS = [
+      "ping",
+      "beginPortalAccess",
+      "completePortalFirstSetup",
+      "loginPortalDevice",
+      "loginPortalSharedDevice"
+    ];
     const GAS_READ_RETRY_ACTIONS = [
       "ping",
+      "validatePortalDevice",
       "getMasterData",
       "getNoticeList",
       "getNoticeDetail",
-      "validateNoticeBoardDevice",
       "getPushSubscriptionSettings"
     ];
 
@@ -7055,11 +7294,21 @@
     let adminFormResetConfirmAction = null;
     let adminSaveConfirmContext = null;
     let adminEntryConfirmReturnFocusTarget = null;
-    let noticeBoardAuthReturnFocusTarget = null;
-    let noticeBoardAuthState = {
+    let authenticatedPortalInitialized = false;
+    let portalAuthState = {
       deviceCredential: "",
       device: null,
-      user: null
+      user: null,
+      capabilities: {
+        can_view_portal: false,
+        can_manage_notices: false
+      }
+    };
+
+    let portalLoginFlowState = {
+      employeeNo: "",
+      displayName: "",
+      flow: ""
     };
 
     const sampleNotices = [
@@ -7746,10 +7995,25 @@
       state.calendarMonthBase = getStartOfMonth(new Date());
       restorePersistedViewState();
       loadReadNoticeState();
-      loadNoticeBoardDeviceRegistration();
+      loadPortalDeviceAuth();
 
       renderToday();
       bindEvents();
+      renderIcons();
+      setConnectionStatus(
+        "loading",
+        "認証確認中",
+        "共通アカウントと社員の在籍状態を確認しています。"
+      );
+
+      const authenticated = await ensurePortalAuthenticatedOnStartup();
+      if (!authenticated) return;
+      await initializeAuthenticatedPortal();
+    }
+
+    async function initializeAuthenticatedPortal() {
+      if (authenticatedPortalInitialized) return;
+      authenticatedPortalInitialized = true;
 
       const initialDataCache = restoreInitialDataCache();
       if (initialDataCache) {
@@ -7960,12 +8224,13 @@
       }, 30000);
 
       const requestParams = { ...params };
-      if (NOTICE_BOARD_AUTH_WRITE_ACTIONS.includes(action)) {
-        if (!hasNoticeBoardAuthSession()) {
-          throw new Error("投稿管理のこの端末の投稿登録が必要です。");
+      if (!PORTAL_AUTH_PUBLIC_ACTIONS.includes(action)) {
+        if (!hasPortalAuthSession()) {
+          showPortalAuthGate("共通アカウントでログインしてください。", "error");
+          throw new Error("梅園ポータルの閲覧には共通アカウント認証が必要です。");
         }
-        requestParams.auth = buildNoticeBoardAuthPayload();
-        Object.assign(requestParams, getNoticeBoardDeviceMetadata());
+        requestParams.auth = buildPortalAuthPayload();
+        Object.assign(requestParams, getPortalDeviceMetadata());
       }
 
       const requestBody = JSON.stringify({
@@ -8004,8 +8269,8 @@
         }
 
         const serverError = result && result.error ? result.error : "接続エラーが発生しました";
-        if (NOTICE_BOARD_AUTH_WRITE_ACTIONS.includes(action) && /この端末|投稿用に登録|投稿管理を利用できません/.test(String(serverError))) {
-          clearNoticeBoardDeviceRegistration();
+        if (!PORTAL_AUTH_PUBLIC_ACTIONS.includes(action) && isPortalAuthenticationError(serverError)) {
+          handlePortalAuthenticationFailure(serverError);
         }
         throw new Error(
           action +
@@ -8503,17 +8768,16 @@
         }
       });
 
-      document.getElementById("notice-board-auth-close-button").addEventListener("click", closeNoticeBoardAuthModal);
-      document.querySelectorAll("[data-notice-board-auth-cancel]").forEach(function (button) {
-        button.addEventListener("click", closeNoticeBoardAuthModal);
+      document.getElementById("portal-auth-identify-form").addEventListener("submit", handlePortalIdentifySubmit);
+      document.getElementById("portal-auth-first-setup-form").addEventListener("submit", handlePortalFirstSetupSubmit);
+      document.getElementById("portal-auth-password-form").addEventListener("submit", handlePortalPasswordLoginSubmit);
+      document.getElementById("portal-auth-back-button").addEventListener("click", function () {
+        resetPortalLoginFlow("", "");
       });
-      document.getElementById("notice-board-auth-modal").addEventListener("click", function (event) {
-        if (event.target.id === "notice-board-auth-modal") {
-          closeNoticeBoardAuthModal();
-        }
-      });
-      document.getElementById("notice-board-auth-register-form").addEventListener("submit", handleNoticeBoardDeviceRegistrationSubmit);
-      document.getElementById("admin-auth-logout-button").addEventListener("click", unregisterNoticeBoardDevice);
+      document.getElementById("portal-auth-shared-toggle-button").addEventListener("click", togglePortalSharedPanel);
+      document.getElementById("portal-auth-shared-form").addEventListener("submit", handlePortalSharedLoginSubmit);
+      document.getElementById("portal-auth-logout-button").addEventListener("click", handlePortalLogout);
+      document.getElementById("admin-auth-logout-button").addEventListener("click", handlePortalLogout);
 
 
       document.getElementById("admin-bulk-hide-ended-confirm-close-button").addEventListener("click", closeAdminBulkHideEndedConfirmModal);
@@ -8561,10 +8825,7 @@
 
       document.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
-          const authModal = document.getElementById("notice-board-auth-modal");
-          if (authModal && authModal.classList.contains("is-open")) {
-            closeNoticeBoardAuthModal();
-          } else if (isAdminSaveConfirmModalOpen()) {
+          if (isAdminSaveConfirmModalOpen()) {
             closeAdminSaveConfirmModal();
           } else if (isReadStateResetConfirmModalOpen()) {
             closeReadStateResetConfirmModal();
@@ -8720,86 +8981,108 @@
     }
 
 
-    function loadNoticeBoardDeviceRegistration() {
+    function loadPortalDeviceAuth() {
       try {
         if (!("localStorage" in window)) return;
-        const rawValue = window.localStorage.getItem(NOTICE_BOARD_DEVICE_STORAGE_KEY);
-        if (!rawValue) return;
-        const saved = JSON.parse(rawValue);
-        if (!saved || typeof saved !== "object") return;
-        noticeBoardAuthState = {
-          deviceCredential: String(saved.deviceCredential || ""),
-          device: saved.device && typeof saved.device === "object" ? saved.device : null,
-          user: saved.user && typeof saved.user === "object" ? saved.user : null
-        };
-      } catch (error) {
-        console.warn("投稿管理の端末登録を復元できませんでした。", error);
-        clearNoticeBoardDeviceRegistration();
-      }
-      renderNoticeBoardAuthSummary();
-    }
-
-    function persistNoticeBoardDeviceRegistration() {
-      try {
-        if (!("localStorage" in window)) return;
-        if (!noticeBoardAuthState.deviceCredential) {
-          window.localStorage.removeItem(NOTICE_BOARD_DEVICE_STORAGE_KEY);
+        const rawValue = window.localStorage.getItem(PORTAL_DEVICE_AUTH_STORAGE_KEY);
+        if (!rawValue) {
+          window.localStorage.removeItem(LEGACY_NOTICE_BOARD_DEVICE_STORAGE_KEY);
           return;
         }
-        window.localStorage.setItem(NOTICE_BOARD_DEVICE_STORAGE_KEY, JSON.stringify(noticeBoardAuthState));
+        const saved = JSON.parse(rawValue);
+        if (!saved || typeof saved !== "object") return;
+        portalAuthState = {
+          deviceCredential: String(saved.deviceCredential || ""),
+          device: saved.device && typeof saved.device === "object" ? saved.device : null,
+          user: saved.user && typeof saved.user === "object" ? saved.user : null,
+          capabilities: saved.capabilities && typeof saved.capabilities === "object"
+            ? saved.capabilities
+            : { can_view_portal: false, can_manage_notices: false }
+        };
+        window.localStorage.removeItem(LEGACY_NOTICE_BOARD_DEVICE_STORAGE_KEY);
       } catch (error) {
-        console.warn("投稿管理の端末登録を保存できませんでした。", error);
+        console.warn("ポータルの端末認証情報を復元できませんでした。", error);
+        clearPortalDeviceAuth();
+      }
+      renderPortalAuthSummary();
+    }
+
+    function persistPortalDeviceAuth() {
+      try {
+        if (!("localStorage" in window)) return;
+        if (!portalAuthState.deviceCredential) {
+          window.localStorage.removeItem(PORTAL_DEVICE_AUTH_STORAGE_KEY);
+          return;
+        }
+        window.localStorage.setItem(PORTAL_DEVICE_AUTH_STORAGE_KEY, JSON.stringify(portalAuthState));
+      } catch (error) {
+        console.warn("ポータルの端末認証情報を保存できませんでした。", error);
       }
     }
 
-    function clearNoticeBoardDeviceRegistration() {
-      noticeBoardAuthState = {
+    function clearPortalDeviceAuth() {
+      portalAuthState = {
         deviceCredential: "",
         device: null,
-        user: null
+        user: null,
+        capabilities: {
+          can_view_portal: false,
+          can_manage_notices: false
+        }
       };
       try {
         if ("localStorage" in window) {
-          window.localStorage.removeItem(NOTICE_BOARD_DEVICE_STORAGE_KEY);
+          window.localStorage.removeItem(PORTAL_DEVICE_AUTH_STORAGE_KEY);
+          window.localStorage.removeItem(LEGACY_NOTICE_BOARD_DEVICE_STORAGE_KEY);
         }
       } catch (error) {
-        console.warn("投稿管理の端末登録を削除できませんでした。", error);
+        console.warn("ポータルの端末認証情報を削除できませんでした。", error);
       }
-      renderNoticeBoardAuthSummary();
+      renderPortalAuthSummary();
     }
 
-    function hasNoticeBoardAuthSession() {
-      return Boolean(noticeBoardAuthState && noticeBoardAuthState.deviceCredential);
+    function hasPortalAuthSession() {
+      return Boolean(portalAuthState && portalAuthState.deviceCredential);
     }
 
-    function buildNoticeBoardAuthPayload() {
+    function canManagePortalNotices() {
+      return Boolean(
+        hasPortalAuthSession() &&
+        portalAuthState.capabilities &&
+        portalAuthState.capabilities.can_manage_notices
+      );
+    }
+
+    function buildPortalAuthPayload() {
       return {
-        device_credential: noticeBoardAuthState.deviceCredential || ""
+        device_credential: portalAuthState.deviceCredential || ""
       };
     }
 
-    function getNoticeBoardRegistrationClientId() {
+    function getPortalDeviceClientId() {
       try {
         if (!("localStorage" in window)) return "";
-        let clientId = String(window.localStorage.getItem(NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY) || "");
+        let clientId = String(window.localStorage.getItem(PORTAL_DEVICE_CLIENT_STORAGE_KEY) || "");
         if (clientId) return clientId;
         if (window.crypto && typeof window.crypto.randomUUID === "function") {
           clientId = window.crypto.randomUUID();
         } else if (window.crypto && typeof window.crypto.getRandomValues === "function") {
           const values = new Uint32Array(4);
           window.crypto.getRandomValues(values);
-          clientId = Array.from(values).map(function (value) { return value.toString(16).padStart(8, "0"); }).join("");
+          clientId = Array.from(values).map(function (value) {
+            return value.toString(16).padStart(8, "0");
+          }).join("");
         } else {
           clientId = String(Date.now()) + "-" + Math.random().toString(36).slice(2);
         }
-        window.localStorage.setItem(NOTICE_BOARD_REGISTRATION_CLIENT_STORAGE_KEY, clientId);
+        window.localStorage.setItem(PORTAL_DEVICE_CLIENT_STORAGE_KEY, clientId);
         return clientId;
       } catch (error) {
         return "";
       }
     }
 
-    function getNoticeBoardDeviceMetadata() {
+    function getPortalDeviceMetadata() {
       let displayMode = "browser";
       if (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) {
         displayMode = "standalone";
@@ -8812,7 +9095,7 @@
         : String(navigator.platform || "");
 
       return {
-        registration_client_id: getNoticeBoardRegistrationClientId(),
+        registration_client_id: getPortalDeviceClientId(),
         display_mode: displayMode,
         platform: platform,
         language: String(navigator.language || ""),
@@ -8820,148 +9103,373 @@
       };
     }
 
-    function applyNoticeBoardAuthResult(result) {
-      noticeBoardAuthState = {
-        deviceCredential: String(result && result.device_credential ? result.device_credential : noticeBoardAuthState.deviceCredential || ""),
+    function applyPortalAuthResult(result) {
+      portalAuthState = {
+        deviceCredential: String(
+          result && result.device_credential
+            ? result.device_credential
+            : portalAuthState.deviceCredential || ""
+        ),
         device: result && result.device && typeof result.device === "object" ? result.device : null,
-        user: result && result.user && typeof result.user === "object" ? result.user : null
+        user: result && result.user && typeof result.user === "object" ? result.user : null,
+        capabilities: result && result.capabilities && typeof result.capabilities === "object"
+          ? result.capabilities
+          : { can_view_portal: false, can_manage_notices: false }
       };
-      persistNoticeBoardDeviceRegistration();
-      renderNoticeBoardAuthSummary();
+      persistPortalDeviceAuth();
+      renderPortalAuthSummary();
     }
 
-    function renderNoticeBoardAuthSummary() {
-      const element = document.getElementById("admin-auth-user");
-      if (!element) return;
-      if (!hasNoticeBoardAuthSession()) {
-        element.textContent = "この端末は未登録";
-        return;
+    function renderPortalAuthSummary() {
+      const user = portalAuthState.user || {};
+      const isShared = user.account_type === "shared";
+      const baseLabel = user.display_name || user.employee_no || "共通アカウント";
+      const label = isShared ? baseLabel + " / 共有" : baseLabel;
+      const headerUser = document.getElementById("portal-auth-user");
+      const adminUser = document.getElementById("admin-auth-user");
+      const canManage = canManagePortalNotices();
+
+      if (headerUser) {
+        headerUser.textContent = hasPortalAuthSession() ? label : "未認証";
       }
-      const user = noticeBoardAuthState.user || {};
-      const label = user.display_name || user.employee_no || "登録済み社員";
-      element.textContent = label + " の端末として登録済み";
-    }
+      if (adminUser) {
+        adminUser.textContent = hasPortalAuthSession()
+          ? (canManage ? label + " / 投稿可" : label + " / 投稿権限なし")
+          : "未認証";
+      }
 
-    function setNoticeBoardAuthStatus(message, type) {
-      const element = document.getElementById("notice-board-auth-status");
-      if (!element) return;
-      element.textContent = message || "";
-      element.className = "notice-board-auth-status" + (type ? " is-" + type : "");
-    }
-
-    function openNoticeBoardAuthModal(triggerElement) {
-      const modal = document.getElementById("notice-board-auth-modal");
-      if (!modal) return;
-      noticeBoardAuthReturnFocusTarget = triggerElement || document.activeElement;
-      setNoticeBoardAuthStatus("");
-      modal.classList.add("is-open");
-      modal.setAttribute("aria-hidden", "false");
-      renderIcons();
-      window.requestAnimationFrame(function () {
-        const input = document.getElementById("notice-board-auth-employee-no");
-        if (input) input.focus();
+      document.querySelectorAll("[data-admin-entry-button]").forEach(function (button) {
+        if (!hasPortalAuthSession()) {
+          button.title = "共通アカウント認証が必要です";
+        } else if (!canManage) {
+          button.title = "投稿管理の権限がありません";
+        } else {
+          button.title = "投稿管理を開く";
+        }
       });
     }
 
-    function closeNoticeBoardAuthModal(options) {
-      const modal = document.getElementById("notice-board-auth-modal");
-      if (!modal) return;
-      modal.classList.remove("is-open");
-      modal.setAttribute("aria-hidden", "true");
-      setNoticeBoardAuthStatus("");
-      const shouldRestoreFocus = !options || options.restoreFocus !== false;
-      if (shouldRestoreFocus && noticeBoardAuthReturnFocusTarget && typeof noticeBoardAuthReturnFocusTarget.focus === "function") {
-        noticeBoardAuthReturnFocusTarget.focus();
-      }
-      noticeBoardAuthReturnFocusTarget = null;
+    function setPortalAuthStatus(message, type) {
+      const element = document.getElementById("portal-auth-status");
+      if (!element) return;
+      element.textContent = message || "";
+      element.className = "portal-auth-status" + (type ? " is-" + type : "");
     }
 
-    async function validateNoticeBoardAuthSession() {
-      if (!hasNoticeBoardAuthSession()) return false;
+    function setPortalAuthStepVisibility(elementId, visible) {
+      const element = document.getElementById(elementId);
+      if (element) element.hidden = !visible;
+    }
+
+    function resetPortalLoginFlow(message, type) {
+      portalLoginFlowState = {
+        employeeNo: "",
+        displayName: "",
+        flow: ""
+      };
+      setPortalAuthStepVisibility("portal-auth-identify-step", true);
+      setPortalAuthStepVisibility("portal-auth-individual-step", false);
+      setPortalAuthStepVisibility("portal-auth-first-setup-form", false);
+      setPortalAuthStepVisibility("portal-auth-password-form", false);
+      const password = document.getElementById("portal-auth-password");
+      const newPassword = document.getElementById("portal-auth-new-password");
+      const newPasswordConfirm = document.getElementById("portal-auth-new-password-confirm");
+      if (password) password.value = "";
+      if (newPassword) newPassword.value = "";
+      if (newPasswordConfirm) newPasswordConfirm.value = "";
+      setPortalAuthStatus(message || "", type || "");
+      window.requestAnimationFrame(function () {
+        const employeeNoInput = document.getElementById("portal-auth-employee-no");
+        if (employeeNoInput) employeeNoInput.focus();
+      });
+    }
+
+    function showPortalAuthGate(message, type) {
+      const gate = document.getElementById("portal-auth-gate");
+      const shell = document.getElementById("portal-app-shell");
+      const nav = document.getElementById("portal-bottom-nav");
+      if (gate) gate.hidden = false;
+      if (shell) shell.hidden = true;
+      if (nav) nav.hidden = true;
+      if (!portalLoginFlowState.employeeNo) {
+        resetPortalLoginFlow(message || "", type || "");
+      } else {
+        setPortalAuthStatus(message || "", type || "");
+      }
+      renderIcons();
+    }
+
+    function showAuthenticatedPortal() {
+      const gate = document.getElementById("portal-auth-gate");
+      const shell = document.getElementById("portal-app-shell");
+      const nav = document.getElementById("portal-bottom-nav");
+      if (gate) gate.hidden = true;
+      if (shell) shell.hidden = false;
+      if (nav) nav.hidden = false;
+      setPortalAuthStatus("");
+      renderPortalAuthSummary();
+      renderIcons();
+    }
+
+    function isPortalAuthenticationError(message) {
+      return /端末認証情報|共通アカウントが停止|共通アカウントを一意|社員情報が無効|退職済み|初回パスワード設定|初回設定|パスワード変更後|共通アカウント認証が必要|閲覧には共通アカウント認証|共有アカウント|利用範囲/.test(String(message || ""));
+    }
+
+    function handlePortalAuthenticationFailure(message) {
+      clearPortalDeviceAuth();
+      authenticatedPortalInitialized = false;
+      resetAdminNoticeFormMode();
+      switchAppScreen("portal");
+      portalLoginFlowState = { employeeNo: "", displayName: "", flow: "" };
+      showPortalAuthGate(String(message || "認証状態を確認できません。もう一度ログインしてください。"), "error");
+    }
+
+    async function ensurePortalAuthenticatedOnStartup() {
+      if (!hasPortalAuthSession()) {
+        portalLoginFlowState = { employeeNo: "", displayName: "", flow: "" };
+        showPortalAuthGate("", "");
+        return false;
+      }
+
+      showPortalAuthGate("この端末の認証状態を確認しています。", "");
       try {
-        const result = await gasRequest("validateNoticeBoardDevice", {
-          auth: buildNoticeBoardAuthPayload(),
-          ...getNoticeBoardDeviceMetadata()
-        });
-        applyNoticeBoardAuthResult(result);
+        const result = await gasRequest("validatePortalDevice", {});
+        applyPortalAuthResult(result);
+        showAuthenticatedPortal();
         return true;
       } catch (error) {
         const message = getErrorMessage(error);
-        if (/この端末|登録し直|利用できません/.test(message)) {
-          clearNoticeBoardDeviceRegistration();
-          return false;
+        if (isPortalAuthenticationError(message)) {
+          handlePortalAuthenticationFailure(message);
+        } else {
+          showPortalAuthGate(
+            "端末認証を確認できませんでした。通信状態を確認して再読み込みしてください。",
+            "error"
+          );
         }
-        throw error;
+        return false;
       }
     }
 
-    async function requestOpenAdminEntry(triggerElement) {
-      if (hasNoticeBoardAuthSession()) {
-        try {
-          const valid = await validateNoticeBoardAuthSession();
-          if (valid) {
-            openAdminEntryConfirmModal(triggerElement);
-            return;
-          }
-        } catch (error) {
-          window.alert("投稿管理の接続確認に失敗しました。通信状態を確認して再度お試しください。\n\n" + getErrorMessage(error));
-          return;
-        }
-      }
-      openNoticeBoardAuthModal(triggerElement);
+    async function validatePortalAuthSession() {
+      if (!hasPortalAuthSession()) return false;
+      const result = await gasRequest("validatePortalDevice", {});
+      applyPortalAuthResult(result);
+      return true;
     }
 
-    async function handleNoticeBoardDeviceRegistrationSubmit(event) {
+    function showPortalIndividualFlow(result) {
+      portalLoginFlowState = {
+        employeeNo: String(result && result.employee_no || ""),
+        displayName: String(result && result.display_name || ""),
+        flow: String(result && result.flow || "")
+      };
+
+      setTextContent("portal-auth-person-name", portalLoginFlowState.displayName || "社員");
+      setTextContent("portal-auth-person-no", portalLoginFlowState.employeeNo ? "社員番号 " + portalLoginFlowState.employeeNo : "");
+      setPortalAuthStepVisibility("portal-auth-identify-step", false);
+      setPortalAuthStepVisibility("portal-auth-individual-step", true);
+      setPortalAuthStepVisibility("portal-auth-first-setup-form", portalLoginFlowState.flow === "setup");
+      setPortalAuthStepVisibility("portal-auth-password-form", portalLoginFlowState.flow === "password");
+      setPortalAuthStatus("");
+
+      window.requestAnimationFrame(function () {
+        const target = portalLoginFlowState.flow === "setup"
+          ? document.getElementById("portal-auth-new-password")
+          : document.getElementById("portal-auth-password");
+        if (target) target.focus();
+      });
+      renderIcons();
+    }
+
+    async function handlePortalIdentifySubmit(event) {
       event.preventDefault();
-      const employeeNo = String(document.getElementById("notice-board-auth-employee-no").value || "").trim();
+      const employeeNoInput = document.getElementById("portal-auth-employee-no");
+      const button = document.getElementById("portal-auth-identify-button");
+      const employeeNo = String(employeeNoInput.value || "").trim();
+
       if (!employeeNo) {
-        setNoticeBoardAuthStatus("社員番号を入力してください。", "error");
+        setPortalAuthStatus("社員番号を入力してください。", "error");
         return;
       }
 
-      const button = document.getElementById("notice-board-auth-register-button");
       button.disabled = true;
-      setNoticeBoardAuthStatus("社員番号と端末を確認しています。");
+      setPortalAuthStatus("社員情報を確認しています。", "");
       try {
-        const result = await gasRequest("registerNoticeBoardDevice", {
+        const result = await gasRequest("beginPortalAccess", {
           employee_no: employeeNo,
-          ...getNoticeBoardDeviceMetadata()
+          ...getPortalDeviceMetadata()
         });
-        applyNoticeBoardAuthResult(result);
-        document.getElementById("notice-board-auth-employee-no").value = "";
-        setNoticeBoardAuthStatus("この端末を投稿用に登録しました。", "success");
-        const returnFocusTarget = noticeBoardAuthReturnFocusTarget;
-        closeNoticeBoardAuthModal({ restoreFocus: false });
-        openAdminEntryConfirmModal(returnFocusTarget);
+        showPortalIndividualFlow(result);
       } catch (error) {
-        setNoticeBoardAuthStatus(getErrorMessage(error), "error");
+        setPortalAuthStatus(getErrorMessage(error), "error");
       } finally {
         button.disabled = false;
       }
     }
 
-    async function unregisterNoticeBoardDevice() {
-      const credential = noticeBoardAuthState.deviceCredential || "";
-      if (!credential) {
-        clearNoticeBoardDeviceRegistration();
-        switchAppScreen("portal");
+    async function handlePortalFirstSetupSubmit(event) {
+      event.preventDefault();
+      const passwordInput = document.getElementById("portal-auth-new-password");
+      const confirmInput = document.getElementById("portal-auth-new-password-confirm");
+      const button = document.getElementById("portal-auth-first-setup-button");
+      const password = String(passwordInput.value || "");
+      const confirmPassword = String(confirmInput.value || "");
+
+      if (!password || !confirmPassword) {
+        setPortalAuthStatus("新しいパスワードを2回入力してください。", "error");
+        return;
+      }
+      if (password !== confirmPassword) {
+        setPortalAuthStatus("新しいパスワードと確認入力が一致しません。", "error");
+        return;
+      }
+      if (password.length < 8 || password.length > 64) {
+        setPortalAuthStatus("パスワードは8文字以上64文字以下で入力してください。", "error");
         return;
       }
 
-      const confirmed = window.confirm("この端末の投稿登録を解除しますか？解除後は、再度社員番号の入力が必要です。");
+      button.disabled = true;
+      setPortalAuthStatus("初回設定と端末登録を行っています。", "");
+      try {
+        const result = await gasRequest("completePortalFirstSetup", {
+          employee_no: portalLoginFlowState.employeeNo,
+          new_password: password,
+          new_password_confirm: confirmPassword,
+          ...getPortalDeviceMetadata()
+        });
+        applyPortalAuthResult(result);
+        passwordInput.value = "";
+        confirmInput.value = "";
+        setPortalAuthStatus("設定が完了しました。", "success");
+        showAuthenticatedPortal();
+        await initializeAuthenticatedPortal();
+      } catch (error) {
+        setPortalAuthStatus(getErrorMessage(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function handlePortalPasswordLoginSubmit(event) {
+      event.preventDefault();
+      const passwordInput = document.getElementById("portal-auth-password");
+      const button = document.getElementById("portal-auth-password-button");
+      const password = String(passwordInput.value || "");
+
+      if (!portalLoginFlowState.employeeNo || !password) {
+        setPortalAuthStatus("社員番号の確認からやり直してください。", "error");
+        return;
+      }
+
+      button.disabled = true;
+      setPortalAuthStatus("パスワードを確認して端末を登録しています。", "");
+      try {
+        const result = await gasRequest("loginPortalDevice", {
+          employee_no: portalLoginFlowState.employeeNo,
+          password: password,
+          ...getPortalDeviceMetadata()
+        });
+        applyPortalAuthResult(result);
+        passwordInput.value = "";
+        setPortalAuthStatus("認証しました。", "success");
+        showAuthenticatedPortal();
+        await initializeAuthenticatedPortal();
+      } catch (error) {
+        setPortalAuthStatus(getErrorMessage(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    function togglePortalSharedPanel() {
+      const panel = document.getElementById("portal-auth-shared-panel");
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden) {
+        window.requestAnimationFrame(function () {
+          const input = document.getElementById("portal-auth-shared-login-id");
+          if (input) input.focus();
+        });
+      }
+      renderIcons();
+    }
+
+    async function handlePortalSharedLoginSubmit(event) {
+      event.preventDefault();
+      const loginIdInput = document.getElementById("portal-auth-shared-login-id");
+      const passwordInput = document.getElementById("portal-auth-shared-password");
+      const button = document.getElementById("portal-auth-shared-button");
+      const loginId = String(loginIdInput.value || "").trim();
+      const password = String(passwordInput.value || "");
+
+      if (!loginId || !password) {
+        setPortalAuthStatus("共有ログインIDとパスワードを入力してください。", "error");
+        return;
+      }
+
+      button.disabled = true;
+      setPortalAuthStatus("共有端末の設定を確認しています。", "");
+      try {
+        const result = await gasRequest("loginPortalSharedDevice", {
+          login_id: loginId,
+          password: password,
+          ...getPortalDeviceMetadata()
+        });
+        applyPortalAuthResult(result);
+        passwordInput.value = "";
+        setPortalAuthStatus("共有端末として設定しました。", "success");
+        showAuthenticatedPortal();
+        await initializeAuthenticatedPortal();
+      } catch (error) {
+        setPortalAuthStatus(getErrorMessage(error), "error");
+      } finally {
+        button.disabled = false;
+      }
+    }
+
+    async function handlePortalLogout() {
+      const confirmed = window.confirm("梅園ポータルからログアウトしますか？この端末では次回、共通アカウントでのログインが必要です。");
       if (!confirmed) return;
 
       try {
-        await gasRequest("unregisterNoticeBoardDevice", {
-          auth: { device_credential: credential },
-          ...getNoticeBoardDeviceMetadata()
-        });
+        if (hasPortalAuthSession()) {
+          await gasRequest("logoutPortalDevice", {});
+        }
       } catch (error) {
-        console.warn("投稿管理端末の登録解除をサーバーで確認できませんでした。", error);
+        console.warn("サーバー側の端末認証失効を確認できませんでした。", error);
       } finally {
-        clearNoticeBoardDeviceRegistration();
+        clearPortalDeviceAuth();
+        authenticatedPortalInitialized = false;
         resetAdminNoticeFormMode();
         switchAppScreen("portal");
+        portalLoginFlowState = { employeeNo: "", displayName: "", flow: "" };
+        showPortalAuthGate("ログアウトしました。", "success");
+      }
+    }
+
+    async function requestOpenAdminEntry(triggerElement) {
+      if (!hasPortalAuthSession()) {
+        showPortalAuthGate("共通アカウントでログインしてください。", "error");
+        return;
+      }
+
+      try {
+        await validatePortalAuthSession();
+        if (!canManagePortalNotices()) {
+          if (portalAuthState.capabilities && portalAuthState.capabilities.is_shared_account) {
+            window.alert("共有端末から投稿管理は利用できません。投稿は個人アカウントの端末から行ってください。");
+          } else {
+            window.alert("投稿管理を利用できる権限がありません。管理者へ確認してください。");
+          }
+          return;
+        }
+        openAdminEntryConfirmModal(triggerElement);
+      } catch (error) {
+        const message = getErrorMessage(error);
+        if (!isPortalAuthenticationError(message)) {
+          window.alert("投稿権限の確認に失敗しました。通信状態を確認して再度お試しください。\n\n" + message);
+        }
       }
     }
 
@@ -9006,9 +9514,9 @@
     }
 
     function executeAdminEntryConfirmAction() {
-      if (!hasNoticeBoardAuthSession()) {
+      if (!canManagePortalNotices()) {
         closeAdminEntryConfirmModal({ restoreFocus: false });
-        openNoticeBoardAuthModal();
+        window.alert("投稿管理を利用できる権限がありません。管理者へ確認してください。");
         return;
       }
       closeAdminEntryConfirmModal({ restoreFocus: false });
@@ -9034,7 +9542,7 @@
     }
 
     function switchAppScreen(screenName) {
-      if (screenName === "admin" && !hasNoticeBoardAuthSession()) {
+      if (screenName === "admin" && !canManagePortalNotices()) {
         screenName = "portal";
       }
 
@@ -9078,7 +9586,7 @@
       }
 
       if (activeScreen === "admin") {
-        renderNoticeBoardAuthSummary();
+        renderPortalAuthSummary();
         renderAdminDataSourcePanel();
         renderAdminNoticeList();
       }
