@@ -1,4 +1,13 @@
 <!--
+  梅園ポータル v2.5 complete 固定化
+  - v2.5-4_work の実機確認済み版を固定保管版として整理。
+  - 個人共通アカウントの初回自動準備、端末自動認証、アカウント停止・再初期化連動、共有端末認証を固定。
+  - 個人アカウントは追加の投稿権限制限なし。共有端末は書込み時に社員番号で操作者を確認し、created_by / updated_byへemployee_idを記録。
+  - 起動時・10分間隔・画面復帰時に端末認証を再確認し、退職・社員無効・アカウント停止等を検知した場合は閲覧を停止。
+  - Push通知、Service Worker、manifest、既存の既読・表示・Push関連localStorageキーは変更しない。
+  - v2.5 complete は固定保管版として直接編集しない。
+-->
+<!--
   v2.5-4 認証状態の定期・画面復帰再確認
   - v2.5-3_workを基準に、起動時だけでなく表示中も端末認証状態を再確認する。
   - 認証済みポータルは10分間隔で validatePortalDevice を実行し、社員無効・退職・アカウント停止・パスワード変更を検知したら認証画面へ戻す。
@@ -267,7 +276,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.5-4_work</title>
+  <title>梅園ポータル v2.5_complete</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -6110,7 +6119,7 @@
         <img class="portal-auth-brand-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">
         <div>
           <h1 id="portal-auth-title" class="portal-auth-title">梅園ポータル</h1>
-          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-4_work</p>
+          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5_complete</p>
         </div>
       </div>
 
@@ -6219,7 +6228,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-4_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5_complete</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
