@@ -1,4 +1,14 @@
 <!--
+  梅園ポータル v2.6-1_work 起動高速化・認証中表示
+  - v2.5 complete は固定保管版として直接編集せず、コピーして v2.6_work を開始。
+  - 通常の端末自動認証は getPortalBootstrapData 1回で、端末認証・社員/共有範囲確認・マスタ・掲示一覧をまとめて取得する。
+  - 初回パスワード設定、個人ログイン、共有端末ログインも同一レスポンスへ初期データを同梱し、認証後の追加2通信を省略する。
+  - 認証からポータル表示まで専用ローディング画面を表示し、処理中であることを明確にする。
+  - 起動時・10分間隔・画面復帰時の再認証、退職/社員無効/アカウント停止/パスワード変更時の閲覧停止は維持する。
+  - 既存APIは残し、bootstrap取得に失敗または旧GAS応答の場合は従来の初期データ取得へフォールバックする。
+  - 掲示DB、Push通知、Service Worker、manifest、既存localStorageキーは変更しない。
+-->
+<!--
   梅園ポータル v2.5 complete 固定化
   - v2.5-4_work の実機確認済み版を固定保管版として整理。
   - 個人共通アカウントの初回自動準備、端末自動認証、アカウント停止・再初期化連動、共有端末認証を固定。
@@ -276,7 +286,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.5_complete</title>
+  <title>梅園ポータル v2.6-1_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -4691,6 +4701,53 @@
       box-shadow: 0 18px 48px rgba(80, 45, 30, 0.16);
     }
 
+    .portal-auth-loading-step {
+      display: grid;
+      justify-items: center;
+      gap: 14px;
+      padding: 26px 10px 18px;
+      text-align: center;
+    }
+
+    .portal-auth-loading-step[hidden] {
+      display: none !important;
+    }
+
+    .portal-auth-loading-spinner {
+      width: 46px;
+      height: 46px;
+      border: 5px solid rgba(139, 30, 45, 0.14);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+      animation: portal-auth-spin 0.85s linear infinite;
+    }
+
+    .portal-auth-loading-title {
+      margin: 2px 0 0;
+      color: var(--brand);
+      font-size: 18px;
+      font-weight: 900;
+      line-height: 1.4;
+    }
+
+    .portal-auth-loading-message {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 800;
+      line-height: 1.7;
+    }
+
+    @keyframes portal-auth-spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .portal-auth-loading-spinner {
+        animation-duration: 1.8s;
+      }
+    }
+
     .portal-auth-brand {
       display: flex;
       align-items: center;
@@ -6119,8 +6176,14 @@
         <img class="portal-auth-brand-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">
         <div>
           <h1 id="portal-auth-title" class="portal-auth-title">梅園ポータル</h1>
-          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5_complete</p>
+          <p class="portal-auth-subtitle">かんたん初回設定 / v2.6-1_work</p>
         </div>
+      </div>
+
+      <div id="portal-auth-loading-step" class="portal-auth-loading-step" hidden role="status" aria-live="polite" aria-atomic="true">
+        <div class="portal-auth-loading-spinner" aria-hidden="true"></div>
+        <h2 class="portal-auth-loading-title">梅園ポータルを準備しています</h2>
+        <p id="portal-auth-loading-message" class="portal-auth-loading-message">認証情報と最新の掲示データを確認しています。</p>
       </div>
 
       <div id="portal-auth-identify-step" class="portal-auth-step">
@@ -6186,7 +6249,7 @@
 
       <p id="portal-auth-status" class="portal-auth-status" role="status" aria-live="polite" aria-atomic="true"></p>
 
-      <div class="portal-auth-secondary-actions">
+      <div id="portal-auth-secondary-actions" class="portal-auth-secondary-actions">
         <button id="portal-auth-shared-toggle-button" class="portal-auth-link-button" type="button">
           店舗・共有端末を設定する
         </button>
@@ -6228,7 +6291,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5_complete</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.6-1_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -7356,6 +7419,7 @@
     const GAS_READ_RETRY_ACTIONS = [
       "ping",
       "validatePortalDevice",
+      "getPortalBootstrapData",
       "getMasterData",
       "getNoticeList",
       "getNoticeDetail",
@@ -8117,37 +8181,42 @@
         "共通アカウントと社員の在籍状態を確認しています。"
       );
 
-      const authenticated = await ensurePortalAuthenticatedOnStartup();
-      if (!authenticated) return;
-      await initializeAuthenticatedPortal();
+      const startupResult = await ensurePortalAuthenticatedOnStartup();
+      if (!startupResult) return;
+      await initializeAuthenticatedPortal({ bootstrap: getPortalBootstrapPayload(startupResult) });
+      showAuthenticatedPortal();
     }
 
-    async function initializeAuthenticatedPortal() {
+    async function initializeAuthenticatedPortal(options = {}) {
       if (authenticatedPortalInitialized) return;
       authenticatedPortalInitialized = true;
 
-      const initialDataCache = restoreInitialDataCache();
-      if (initialDataCache) {
-        const cacheTime = formatInitialDataCacheTime(initialDataCache.savedAt);
-        setConnectionStatus(
-          "loading",
-          "前回データ表示中",
-          cacheTime + "に取得したデータを先に表示し、最新情報を確認しています。"
-        );
-        renderAllDataViews();
-        switchAppScreen(state.activeScreen);
+      const bootstrap = options.bootstrap || null;
+      if (bootstrap) {
+        applyPortalBootstrapPayload(bootstrap);
       } else {
-        setConnectionStatus(
-          "loading",
-          "接続確認中",
-          "データを取得しています。"
-        );
+        const initialDataCache = restoreInitialDataCache();
+        if (initialDataCache) {
+          const cacheTime = formatInitialDataCacheTime(initialDataCache.savedAt);
+          setConnectionStatus(
+            "loading",
+            "前回データ確認中",
+            cacheTime + "に取得したデータを保持しながら最新情報を確認しています。"
+          );
+        } else {
+          setConnectionStatus(
+            "loading",
+            "接続確認中",
+            "データを取得しています。"
+          );
+        }
+
+        await loadInitialData({
+          hasCache: Boolean(initialDataCache),
+          cacheSavedAt: initialDataCache ? initialDataCache.savedAt : 0
+        });
       }
 
-      await loadInitialData({
-        hasCache: Boolean(initialDataCache),
-        cacheSavedAt: initialDataCache ? initialDataCache.savedAt : 0
-      });
       renderAllDataViews();
       switchAppScreen(state.activeScreen);
       openInitialNoticeFromLocation();
@@ -9301,6 +9370,56 @@
       if (element) element.hidden = !visible;
     }
 
+    function setPortalAuthLoadingState(active, message) {
+      const loading = document.getElementById("portal-auth-loading-step");
+      const loadingMessage = document.getElementById("portal-auth-loading-message");
+      const secondaryActions = document.getElementById("portal-auth-secondary-actions");
+      const sharedPanel = document.getElementById("portal-auth-shared-panel");
+
+      if (loading) loading.hidden = !active;
+      if (loadingMessage && message) loadingMessage.textContent = message;
+      if (secondaryActions) secondaryActions.hidden = Boolean(active);
+      if (active) {
+        setPortalAuthStepVisibility("portal-auth-identify-step", false);
+        setPortalAuthStepVisibility("portal-auth-individual-step", false);
+        if (sharedPanel) sharedPanel.hidden = true;
+        setPortalAuthStatus("");
+      }
+      renderIcons();
+    }
+
+    function showPortalLoadingGate(message) {
+      const gate = document.getElementById("portal-auth-gate");
+      const shell = document.getElementById("portal-app-shell");
+      const nav = document.getElementById("portal-bottom-nav");
+      if (gate) gate.hidden = false;
+      if (shell) shell.hidden = true;
+      if (nav) nav.hidden = true;
+      setPortalAuthLoadingState(true, message || "認証情報と最新の掲示データを確認しています。");
+    }
+
+    function getPortalBootstrapPayload(result) {
+      const bootstrap = result && result.bootstrap;
+      if (!bootstrap || typeof bootstrap !== "object") return null;
+      if (!bootstrap.masterData || typeof bootstrap.masterData !== "object") return null;
+      if (!Array.isArray(bootstrap.notices)) return null;
+      return bootstrap;
+    }
+
+    function applyPortalBootstrapPayload(bootstrap) {
+      const payload = bootstrap || {};
+      appMasterData = payload.masterData || appMasterData;
+      appNotices = Array.isArray(payload.notices)
+        ? payload.notices.map(normalizeNotice)
+        : [];
+      persistInitialDataCache();
+      setConnectionStatus(
+        "connected",
+        "GAS接続済み",
+        "認証と最新の掲示データをまとめて確認しました。"
+      );
+    }
+
     function resetPortalLoginFlow(message, type) {
       portalLoginFlowState = {
         employeeNo: "",
@@ -9331,9 +9450,11 @@
       if (gate) gate.hidden = false;
       if (shell) shell.hidden = true;
       if (nav) nav.hidden = true;
+      setPortalAuthLoadingState(false);
       if (!portalLoginFlowState.employeeNo) {
         resetPortalLoginFlow(message || "", type || "");
       } else {
+        setPortalAuthStepVisibility("portal-auth-individual-step", true);
         setPortalAuthStatus(message || "", type || "");
       }
       renderIcons();
@@ -9343,6 +9464,7 @@
       const gate = document.getElementById("portal-auth-gate");
       const shell = document.getElementById("portal-app-shell");
       const nav = document.getElementById("portal-bottom-nav");
+      setPortalAuthLoadingState(false);
       if (gate) gate.hidden = true;
       if (shell) shell.hidden = false;
       if (nav) nav.hidden = false;
@@ -9369,26 +9491,25 @@
       if (!hasPortalAuthSession()) {
         portalLoginFlowState = { employeeNo: "", displayName: "", flow: "" };
         showPortalAuthGate("", "");
-        return false;
+        return null;
       }
 
-      showPortalAuthGate("この端末の認証状態を確認しています。", "");
+      showPortalLoadingGate("認証情報と最新の掲示データを確認しています。");
       try {
-        const result = await gasRequest("validatePortalDevice", {});
+        const result = await gasRequest("getPortalBootstrapData", {});
         applyPortalAuthResult(result);
-        showAuthenticatedPortal();
-        return true;
+        return result;
       } catch (error) {
         const message = getErrorMessage(error);
         if (isPortalAuthenticationError(message)) {
           handlePortalAuthenticationFailure(message);
         } else {
           showPortalAuthGate(
-            "端末認証を確認できませんでした。通信状態を確認して再読み込みしてください。",
+            "認証または初期データを確認できませんでした。通信状態を確認して再読み込みしてください。",
             "error"
           );
         }
-        return false;
+        return null;
       }
     }
 
@@ -9506,21 +9627,27 @@
       }
 
       button.disabled = true;
-      setPortalAuthStatus("初回設定と端末登録を行っています。", "");
+      showPortalLoadingGate("初回設定・端末登録・掲示データの準備をしています。");
       try {
         const result = await gasRequest("completePortalFirstSetup", {
           employee_no: portalLoginFlowState.employeeNo,
           new_password: password,
           new_password_confirm: confirmPassword,
+          include_bootstrap: true,
           ...getPortalDeviceMetadata()
         });
         applyPortalAuthResult(result);
         passwordInput.value = "";
         confirmInput.value = "";
-        setPortalAuthStatus("設定が完了しました。", "success");
+        await initializeAuthenticatedPortal({ bootstrap: getPortalBootstrapPayload(result) });
         showAuthenticatedPortal();
-        await initializeAuthenticatedPortal();
       } catch (error) {
+        setPortalAuthLoadingState(false);
+        showPortalIndividualFlow({
+          employee_no: portalLoginFlowState.employeeNo,
+          display_name: portalLoginFlowState.displayName,
+          flow: "setup"
+        });
         setPortalAuthStatus(getErrorMessage(error), "error");
       } finally {
         button.disabled = false;
@@ -9539,19 +9666,25 @@
       }
 
       button.disabled = true;
-      setPortalAuthStatus("パスワードを確認して端末を登録しています。", "");
+      showPortalLoadingGate("認証情報・端末登録・掲示データを確認しています。");
       try {
         const result = await gasRequest("loginPortalDevice", {
           employee_no: portalLoginFlowState.employeeNo,
           password: password,
+          include_bootstrap: true,
           ...getPortalDeviceMetadata()
         });
         applyPortalAuthResult(result);
         passwordInput.value = "";
-        setPortalAuthStatus("認証しました。", "success");
+        await initializeAuthenticatedPortal({ bootstrap: getPortalBootstrapPayload(result) });
         showAuthenticatedPortal();
-        await initializeAuthenticatedPortal();
       } catch (error) {
+        setPortalAuthLoadingState(false);
+        showPortalIndividualFlow({
+          employee_no: portalLoginFlowState.employeeNo,
+          display_name: portalLoginFlowState.displayName,
+          flow: "password"
+        });
         setPortalAuthStatus(getErrorMessage(error), "error");
       } finally {
         button.disabled = false;
@@ -9585,19 +9718,24 @@
       }
 
       button.disabled = true;
-      setPortalAuthStatus("共有端末の設定を確認しています。", "");
+      showPortalLoadingGate("共有端末の認証情報と掲示データを確認しています。");
       try {
         const result = await gasRequest("loginPortalSharedDevice", {
           login_id: loginId,
           password: password,
+          include_bootstrap: true,
           ...getPortalDeviceMetadata()
         });
         applyPortalAuthResult(result);
         passwordInput.value = "";
-        setPortalAuthStatus("共有端末として設定しました。", "success");
+        await initializeAuthenticatedPortal({ bootstrap: getPortalBootstrapPayload(result) });
         showAuthenticatedPortal();
-        await initializeAuthenticatedPortal();
       } catch (error) {
+        setPortalAuthLoadingState(false);
+        portalLoginFlowState = { employeeNo: "", displayName: "", flow: "" };
+        showPortalAuthGate("", "");
+        const panel = document.getElementById("portal-auth-shared-panel");
+        if (panel) panel.hidden = false;
         setPortalAuthStatus(getErrorMessage(error), "error");
       } finally {
         button.disabled = false;
