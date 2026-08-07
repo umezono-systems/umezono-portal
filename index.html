@@ -1,4 +1,12 @@
 <!--
+  v2.5-4 認証状態の定期・画面復帰再確認
+  - v2.5-3_workを基準に、起動時だけでなく表示中も端末認証状態を再確認する。
+  - 認証済みポータルは10分間隔で validatePortalDevice を実行し、社員無効・退職・アカウント停止・パスワード変更を検知したら認証画面へ戻す。
+  - バックグラウンドから画面へ戻った時は、前回認証確認から1分以上経過していれば即時再確認する。
+  - 認証前は従来どおりポータル本体を非表示とし、前回掲示キャッシュはGAS認証成功後にだけ復元する。
+  - GAS処理・DB・Push通知・Service Worker・既存localStorageキーは変更しない。
+-->
+<!--
   v2.5-3 投稿制限撤廃・共有端末投稿者確認
   - v2.5-2b_workを基準に、個人共通アカウントは追加のnotice_board権限なしで投稿管理を利用可能にする。
   - 店舗・部署の共有アカウントも投稿管理を利用可能にし、書込み操作の直前だけ操作者の社員番号を確認する。
@@ -259,7 +267,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.5-3_work</title>
+  <title>梅園ポータル v2.5-4_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -6102,7 +6110,7 @@
         <img class="portal-auth-brand-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">
         <div>
           <h1 id="portal-auth-title" class="portal-auth-title">梅園ポータル</h1>
-          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-3_work</p>
+          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-4_work</p>
         </div>
       </div>
 
@@ -6211,7 +6219,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-3_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-4_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -7327,6 +7335,8 @@
     const INITIAL_DATA_CACHE_STORAGE_KEY = "umezono-portal-v2.3-initial-data-cache";
     const INITIAL_DATA_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
     const GAS_READ_RETRY_DELAY_MS = 1200;
+    const PORTAL_AUTH_REVALIDATE_INTERVAL_MS = 10 * 60 * 1000;
+    const PORTAL_AUTH_RESUME_MIN_INTERVAL_MS = 60 * 1000;
     const PORTAL_AUTH_PUBLIC_ACTIONS = [
       "ping",
       "beginPortalAccess",
@@ -7384,6 +7394,9 @@
       busy: false
     };
     let authenticatedPortalInitialized = false;
+    let portalAuthLastValidatedAt = 0;
+    let portalAuthValidationTimer = null;
+    let portalAuthValidationInFlight = false;
     let portalAuthState = {
       deviceCredential: "",
       device: null,
@@ -8435,6 +8448,9 @@
     }
 
     function bindEvents() {
+      document.addEventListener("visibilitychange", handlePortalResumeAuthCheck);
+      window.addEventListener("focus", handlePortalResumeAuthCheck);
+
       document.querySelectorAll("[data-screen-target]").forEach(function (button) {
         button.addEventListener("click", function () {
           requestAppScreenSwitch(button.dataset.screenTarget);
@@ -9128,6 +9144,11 @@
     }
 
     function clearPortalDeviceAuth() {
+      portalAuthLastValidatedAt = 0;
+      if (portalAuthValidationTimer) {
+        window.clearInterval(portalAuthValidationTimer);
+        portalAuthValidationTimer = null;
+      }
       portalAuthState = {
         deviceCredential: "",
         device: null,
@@ -9223,6 +9244,7 @@
           ? result.capabilities
           : { can_view_portal: false, can_manage_notices: false }
       };
+      portalAuthLastValidatedAt = Date.now();
       persistPortalDeviceAuth();
       renderPortalAuthSummary();
     }
@@ -9317,6 +9339,7 @@
       if (nav) nav.hidden = false;
       setPortalAuthStatus("");
       renderPortalAuthSummary();
+      schedulePortalAuthRevalidation();
       renderIcons();
     }
 
@@ -9365,6 +9388,41 @@
       const result = await gasRequest("validatePortalDevice", {});
       applyPortalAuthResult(result);
       return true;
+    }
+
+    function schedulePortalAuthRevalidation() {
+      if (portalAuthValidationTimer) {
+        window.clearInterval(portalAuthValidationTimer);
+        portalAuthValidationTimer = null;
+      }
+      if (!hasPortalAuthSession()) return;
+      portalAuthValidationTimer = window.setInterval(function () {
+        revalidatePortalAuthInBackground("interval");
+      }, PORTAL_AUTH_REVALIDATE_INTERVAL_MS);
+    }
+
+    async function revalidatePortalAuthInBackground(reason) {
+      if (!hasPortalAuthSession() || portalAuthValidationInFlight) return false;
+      portalAuthValidationInFlight = true;
+      try {
+        await validatePortalAuthSession();
+        return true;
+      } catch (error) {
+        const message = getErrorMessage(error);
+        if (!isPortalAuthenticationError(message)) {
+          console.warn("ポータル認証状態の再確認に失敗しました。", reason || "background", error);
+        }
+        return false;
+      } finally {
+        portalAuthValidationInFlight = false;
+      }
+    }
+
+    function handlePortalResumeAuthCheck() {
+      if (!hasPortalAuthSession() || document.hidden) return;
+      const elapsed = Date.now() - Number(portalAuthLastValidatedAt || 0);
+      if (elapsed < PORTAL_AUTH_RESUME_MIN_INTERVAL_MS) return;
+      revalidatePortalAuthInBackground("resume");
     }
 
     function showPortalIndividualFlow(result) {
