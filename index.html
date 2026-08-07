@@ -1,4 +1,13 @@
 <!--
+  v2.5-3 投稿制限撤廃・共有端末投稿者確認
+  - v2.5-2b_workを基準に、個人共通アカウントは追加のnotice_board権限なしで投稿管理を利用可能にする。
+  - 店舗・部署の共有アカウントも投稿管理を利用可能にし、書込み操作の直前だけ操作者の社員番号を確認する。
+  - 共有端末では社員番号をGASで在籍確認し、氏名を画面表示して本人確認後に保存・編集・公開切替・削除を実行する。
+  - 個人端末は追加入力なしで、認証済みemployee_idをcreated_by / updated_byへ記録する。
+  - 共有端末は書込み時に確認したemployee_idをcreated_by / updated_byへ記録し、共有account_id / device_id / 操作者employee_idを認証履歴にも残す。
+  - 認証・掲示DB本体列・Push通知・Service Worker・既存localStorageキーは変更しない。
+-->
+<!--
   v2.5-2b 初回設定時の通常パスワード欄重複表示修正
   - v2.5-2a_work を基準に、hidden属性付き認証フォームがCSSのdisplay:gridで再表示される問題を修正。
   - 初回設定中は「新しいパスワード」「新しいパスワード（確認）」のみ表示する。
@@ -19,7 +28,7 @@
   - 初回設定完了と同時に端末認証を発行し、2回目以降は端末トークンで自動認証する。
   - 設定済み個人アカウントは社員番号＋パスワードで端末認証する。
   - 店舗タブレット・共用PC向けの共有アカウント入口を追加し、管理者が設定済みの共有アカウントで端末認証できる。
-  - 共有アカウントは閲覧専用とし、投稿管理は個人アカウントのnotice_board権限をGAS側で確認する。
+  - v2.5-2時点では共有アカウントを閲覧専用とし、投稿管理は個人アカウントのnotice_board権限を確認する設計だった。
   - 退職・社員無効・アカウント停止・パスワード変更後の旧端末認証は閲覧停止する。
   - Push通知、Service Worker、manifest、既存の既読・表示・Push・初期データキャッシュ用localStorageキーは変更しない。
 -->
@@ -250,7 +259,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.5-2b_work</title>
+  <title>梅園ポータル v2.5-3_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -4606,6 +4615,37 @@
       height: 16px;
     }
 
+    .shared-notice-operator-field {
+      display: grid;
+      gap: 7px;
+      margin-top: 14px;
+    }
+
+    .shared-notice-operator-summary[hidden] {
+      display: none !important;
+    }
+
+    .shared-notice-operator-summary {
+      margin-top: 14px;
+      padding: 12px 14px;
+      border: 1px solid rgba(49, 93, 153, 0.24);
+      border-radius: 12px;
+      background: #f5f9ff;
+      color: var(--text);
+      font-size: 14px;
+      font-weight: 800;
+      line-height: 1.65;
+    }
+
+    #shared-notice-operator-execute-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-width: 160px;
+      white-space: nowrap;
+    }
+
 
     .portal-auth-gate {
       position: fixed;
@@ -6062,7 +6102,7 @@
         <img class="portal-auth-brand-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">
         <div>
           <h1 id="portal-auth-title" class="portal-auth-title">梅園ポータル</h1>
-          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-2b_work</p>
+          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-3_work</p>
         </div>
       </div>
 
@@ -6160,7 +6200,7 @@
         </form>
       </div>
 
-      <p class="portal-auth-note">退職・社員情報無効・アカウント停止時は、端末認証が残っていても利用できません。共有端末から投稿管理は利用できません。</p>
+      <p class="portal-auth-note">退職・社員情報無効・アカウント停止時は、端末認証が残っていても利用できません。共有端末では投稿・変更時に社員番号を確認します。</p>
     </div>
   </section>
 
@@ -6171,7 +6211,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-2b_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-3_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
@@ -6604,8 +6644,8 @@
           <div>
             <h2 class="section-title screen-title">投稿管理</h2>
           </div>
-          <div class="admin-auth-summary" aria-label="投稿管理の権限状態">
-            <span id="admin-auth-user" class="admin-auth-user">投稿権限確認中</span>
+          <div class="admin-auth-summary" aria-label="投稿管理の認証状態">
+            <span id="admin-auth-user" class="admin-auth-user">投稿利用確認中</span>
             <button id="admin-auth-logout-button" class="small-button" type="button">ポータルからログアウト</button>
           </div>
         </div>
@@ -6942,7 +6982,7 @@
         <div class="delete-confirm-target">
           <div>
             <span class="delete-confirm-label">対象</span>
-            <span class="delete-confirm-title-text">投稿権限を持つ共通アカウント向け</span>
+            <span class="delete-confirm-title-text">認証済みの個人端末・共有端末</span>
           </div>
         </div>
         <p id="admin-entry-confirm-message" class="delete-confirm-message">通常の確認だけであれば、下部ナビから掲示板・カレンダー・重要を利用してください。</p>
@@ -6951,6 +6991,41 @@
           <button id="admin-entry-confirm-execute-button" class="primary-button" type="button">
             <i data-lucide="file-pen-line" class="admin-action-icon" aria-hidden="true"></i>
             投稿管理を開く
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shared-notice-operator-modal" class="modal-backdrop" aria-hidden="true">
+    <div class="modal delete-confirm-modal" role="dialog" aria-modal="true"
+      aria-labelledby="shared-notice-operator-title"
+      aria-describedby="shared-notice-operator-lead shared-notice-operator-message">
+      <div class="modal-header">
+        <div class="modal-title-wrap">
+          <span class="modal-badge" aria-hidden="true">
+            <i data-lucide="user-check" class="admin-action-icon" aria-hidden="true"></i>
+          </span>
+          <h2 id="shared-notice-operator-title" class="modal-title">投稿者を確認します</h2>
+        </div>
+        <button id="shared-notice-operator-close-button" class="modal-close" type="button" aria-label="閉じる">×</button>
+      </div>
+      <div class="modal-body">
+        <p id="shared-notice-operator-lead" class="delete-confirm-lead">
+          共有端末からの操作です。今回、投稿・変更を行う方の社員番号を入力してください。
+        </p>
+        <div class="shared-notice-operator-field">
+          <label class="admin-label" for="shared-notice-operator-employee-no">社員番号</label>
+          <input id="shared-notice-operator-employee-no" class="admin-input" type="text"
+            inputmode="text" autocomplete="off" placeholder="社員番号を入力">
+        </div>
+        <div id="shared-notice-operator-summary" class="shared-notice-operator-summary" hidden></div>
+        <p id="shared-notice-operator-message" class="delete-confirm-message" aria-live="polite"></p>
+        <div class="delete-confirm-actions">
+          <button id="shared-notice-operator-cancel-button" class="small-button" type="button">キャンセル</button>
+          <button id="shared-notice-operator-execute-button" class="primary-button" type="button">
+            <i data-lucide="search" class="admin-action-icon" aria-hidden="true"></i>
+            <span>社員を確認</span>
           </button>
         </div>
       </div>
@@ -7265,6 +7340,7 @@
       "getMasterData",
       "getNoticeList",
       "getNoticeDetail",
+      "resolvePortalNoticeOperator",
       "getPushSubscriptionSettings"
     ];
 
@@ -7302,6 +7378,11 @@
     let adminFormResetConfirmAction = null;
     let adminSaveConfirmContext = null;
     let adminEntryConfirmReturnFocusTarget = null;
+    let sharedNoticeOperatorPromptState = {
+      resolve: null,
+      operator: null,
+      busy: false
+    };
     let authenticatedPortalInitialized = false;
     let portalAuthState = {
       deviceCredential: "",
@@ -8776,6 +8857,22 @@
         }
       });
 
+      document.getElementById("shared-notice-operator-close-button").addEventListener("click", cancelSharedNoticeOperatorPrompt);
+      document.getElementById("shared-notice-operator-cancel-button").addEventListener("click", cancelSharedNoticeOperatorPrompt);
+      document.getElementById("shared-notice-operator-execute-button").addEventListener("click", executeSharedNoticeOperatorPrompt);
+      document.getElementById("shared-notice-operator-employee-no").addEventListener("input", resetSharedNoticeOperatorResolvedState);
+      document.getElementById("shared-notice-operator-employee-no").addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          executeSharedNoticeOperatorPrompt();
+        }
+      });
+      document.getElementById("shared-notice-operator-modal").addEventListener("click", function (event) {
+        if (event.target.id === "shared-notice-operator-modal") {
+          cancelSharedNoticeOperatorPrompt();
+        }
+      });
+
       document.getElementById("portal-auth-identify-form").addEventListener("submit", handlePortalIdentifySubmit);
       document.getElementById("portal-auth-first-setup-form").addEventListener("submit", handlePortalFirstSetupSubmit);
       document.getElementById("portal-auth-password-form").addEventListener("submit", handlePortalPasswordLoginSubmit);
@@ -8833,7 +8930,9 @@
 
       document.addEventListener("keydown", function (event) {
         if (event.key === "Escape") {
-          if (isAdminSaveConfirmModalOpen()) {
+          if (isSharedNoticeOperatorPromptOpen()) {
+            cancelSharedNoticeOperatorPrompt();
+          } else if (isAdminSaveConfirmModalOpen()) {
             closeAdminSaveConfirmModal();
           } else if (isReadStateResetConfirmModalOpen()) {
             closeReadStateResetConfirmModal();
@@ -9142,7 +9241,9 @@
       }
       if (adminUser) {
         adminUser.textContent = hasPortalAuthSession()
-          ? (canManage ? label + " / 投稿可" : label + " / 投稿権限なし")
+          ? (canManage
+            ? (isShared ? label + " / 投稿時に社員番号確認" : label + " / 投稿可")
+            : label + " / 投稿利用不可")
           : "未認証";
       }
 
@@ -9150,9 +9251,9 @@
         if (!hasPortalAuthSession()) {
           button.title = "共通アカウント認証が必要です";
         } else if (!canManage) {
-          button.title = "投稿管理の権限がありません";
+          button.title = "このアカウントでは投稿管理を利用できません";
         } else {
-          button.title = "投稿管理を開く";
+          button.title = isShared ? "投稿管理を開く（保存時に社員番号確認）" : "投稿管理を開く";
         }
       });
     }
@@ -9465,20 +9566,190 @@
       try {
         await validatePortalAuthSession();
         if (!canManagePortalNotices()) {
-          if (portalAuthState.capabilities && portalAuthState.capabilities.is_shared_account) {
-            window.alert("共有端末から投稿管理は利用できません。投稿は個人アカウントの端末から行ってください。");
-          } else {
-            window.alert("投稿管理を利用できる権限がありません。管理者へ確認してください。");
-          }
+          window.alert("このアカウントでは投稿管理を利用できません。");
           return;
         }
         openAdminEntryConfirmModal(triggerElement);
       } catch (error) {
         const message = getErrorMessage(error);
         if (!isPortalAuthenticationError(message)) {
-          window.alert("投稿権限の確認に失敗しました。通信状態を確認して再度お試しください。\n\n" + message);
+          window.alert("投稿管理の利用確認に失敗しました。通信状態を確認して再度お試しください。\n\n" + message);
         }
       }
+    }
+
+    function isSharedPortalAccount() {
+      return Boolean(
+        hasPortalAuthSession() &&
+        portalAuthState.user &&
+        portalAuthState.user.account_type === "shared"
+      );
+    }
+
+    function isSharedNoticeOperatorPromptOpen() {
+      const modal = document.getElementById("shared-notice-operator-modal");
+      return Boolean(modal && modal.classList.contains("is-open"));
+    }
+
+    function resetSharedNoticeOperatorResolvedState() {
+      if (sharedNoticeOperatorPromptState.busy) return;
+      sharedNoticeOperatorPromptState.operator = null;
+      const summary = document.getElementById("shared-notice-operator-summary");
+      const executeButton = document.getElementById("shared-notice-operator-execute-button");
+      if (summary) {
+        summary.hidden = true;
+        summary.textContent = "";
+      }
+      if (executeButton) {
+        executeButton.innerHTML = '<i data-lucide="search" class="admin-action-icon" aria-hidden="true"></i><span>社員を確認</span>';
+      }
+      setTextContent("shared-notice-operator-message", "");
+      renderIcons();
+    }
+
+    function setSharedNoticeOperatorPromptBusy(isBusy) {
+      sharedNoticeOperatorPromptState.busy = Boolean(isBusy);
+      const input = document.getElementById("shared-notice-operator-employee-no");
+      const executeButton = document.getElementById("shared-notice-operator-execute-button");
+      const cancelButton = document.getElementById("shared-notice-operator-cancel-button");
+      const closeButton = document.getElementById("shared-notice-operator-close-button");
+
+      if (input) input.disabled = Boolean(isBusy);
+      if (cancelButton) cancelButton.disabled = Boolean(isBusy);
+      if (closeButton) closeButton.disabled = Boolean(isBusy);
+      if (executeButton) {
+        executeButton.disabled = Boolean(isBusy);
+        if (isBusy) {
+          executeButton.innerHTML = '<i data-lucide="loader-2" class="admin-action-icon" aria-hidden="true"></i><span>確認中...</span>';
+        } else if (!sharedNoticeOperatorPromptState.operator) {
+          executeButton.innerHTML = '<i data-lucide="search" class="admin-action-icon" aria-hidden="true"></i><span>社員を確認</span>';
+        }
+      }
+      renderIcons();
+    }
+
+    function requestSharedNoticeOperator() {
+      if (!isSharedPortalAccount()) {
+        return Promise.resolve(null);
+      }
+
+      if (isSharedNoticeOperatorPromptOpen() && sharedNoticeOperatorPromptState.resolve) {
+        return Promise.resolve(null);
+      }
+
+      return new Promise(function (resolve) {
+        sharedNoticeOperatorPromptState = {
+          resolve: resolve,
+          operator: null,
+          busy: false
+        };
+
+        const input = document.getElementById("shared-notice-operator-employee-no");
+        const summary = document.getElementById("shared-notice-operator-summary");
+        const modal = document.getElementById("shared-notice-operator-modal");
+
+        if (input) {
+          input.value = "";
+          input.disabled = false;
+        }
+        if (summary) {
+          summary.hidden = true;
+          summary.textContent = "";
+        }
+        setTextContent("shared-notice-operator-message", "");
+        resetSharedNoticeOperatorResolvedState();
+
+        if (modal) {
+          modal.classList.add("is-open");
+          modal.setAttribute("aria-hidden", "false");
+        }
+        window.setTimeout(function () {
+          if (input) input.focus();
+        }, 0);
+        renderIcons();
+      });
+    }
+
+    function finishSharedNoticeOperatorPrompt(operator) {
+      const resolver = sharedNoticeOperatorPromptState.resolve;
+      const modal = document.getElementById("shared-notice-operator-modal");
+      if (modal) {
+        modal.classList.remove("is-open");
+        modal.setAttribute("aria-hidden", "true");
+      }
+      sharedNoticeOperatorPromptState = {
+        resolve: null,
+        operator: null,
+        busy: false
+      };
+      if (typeof resolver === "function") {
+        resolver(operator || null);
+      }
+    }
+
+    function cancelSharedNoticeOperatorPrompt() {
+      if (sharedNoticeOperatorPromptState.busy) return;
+      finishSharedNoticeOperatorPrompt(null);
+    }
+
+    async function executeSharedNoticeOperatorPrompt() {
+      if (sharedNoticeOperatorPromptState.busy) return;
+
+      if (sharedNoticeOperatorPromptState.operator) {
+        finishSharedNoticeOperatorPrompt(sharedNoticeOperatorPromptState.operator);
+        return;
+      }
+
+      const input = document.getElementById("shared-notice-operator-employee-no");
+      const employeeNo = String(input && input.value || "").trim();
+      if (!employeeNo) {
+        setTextContent("shared-notice-operator-message", "社員番号を入力してください。");
+        if (input) input.focus();
+        return;
+      }
+
+      setTextContent("shared-notice-operator-message", "");
+      setSharedNoticeOperatorPromptBusy(true);
+
+      try {
+        const result = await gasRequest("resolvePortalNoticeOperator", {
+          employee_no: employeeNo
+        });
+        const operator = result && result.operator ? result.operator : null;
+        if (!operator || !operator.employee_id || !operator.employee_no) {
+          throw new Error("社員情報を確認できませんでした。");
+        }
+
+        sharedNoticeOperatorPromptState.operator = operator;
+        const summary = document.getElementById("shared-notice-operator-summary");
+        const executeButton = document.getElementById("shared-notice-operator-execute-button");
+        if (summary) {
+          summary.hidden = false;
+          summary.textContent = `${operator.display_name || "氏名未設定"} / 社員番号 ${operator.employee_no}`;
+        }
+        if (executeButton) {
+          executeButton.innerHTML = '<i data-lucide="user-check" class="admin-action-icon" aria-hidden="true"></i><span>この社員で続ける</span>';
+        }
+        setTextContent("shared-notice-operator-message", "氏名を確認し、ご本人であれば「この社員で続ける」を押してください。");
+      } catch (error) {
+        sharedNoticeOperatorPromptState.operator = null;
+        setTextContent(
+          "shared-notice-operator-message",
+          error && error.message ? error.message : "社員情報の確認に失敗しました。"
+        );
+      } finally {
+        setSharedNoticeOperatorPromptBusy(false);
+      }
+    }
+
+    function buildNoticeWritePayload(payload, operator) {
+      const nextPayload = { ...(payload || {}) };
+      if (isSharedPortalAccount()) {
+        nextPayload.operator_employee_no = operator && operator.employee_no
+          ? String(operator.employee_no)
+          : "";
+      }
+      return nextPayload;
     }
 
     function isAdminEntryConfirmModalOpen() {
@@ -9524,7 +9795,7 @@
     function executeAdminEntryConfirmAction() {
       if (!canManagePortalNotices()) {
         closeAdminEntryConfirmModal({ restoreFocus: false });
-        window.alert("投稿管理を利用できる権限がありません。管理者へ確認してください。");
+        window.alert("このアカウントでは投稿管理を利用できません。");
         return;
       }
       closeAdminEntryConfirmModal({ restoreFocus: false });
@@ -10290,7 +10561,7 @@
       openAdminSaveConfirmModal(form, payload, isEditing);
     }
 
-    async function submitAdminNoticeForm(form, payload, isEditing) {
+    async function submitAdminNoticeForm(form, payload, isEditing, operator) {
       if (!canUseAdminWriteActions()) {
         const message = getAdminWriteDisabledReason();
         setAdminFormMessage(message, "error");
@@ -10304,7 +10575,7 @@
 
       try {
         if (isEditing) {
-          const updatePayload = buildAdminNoticeUpdatePayload(payload);
+          const updatePayload = buildNoticeWritePayload(buildAdminNoticeUpdatePayload(payload), operator);
           const result = await gasRequest("updateNotice", updatePayload);
           const noticeId = result && result.notice_id
             ? String(result.notice_id)
@@ -10334,7 +10605,7 @@
           };
         }
 
-        const result = await gasRequest("createNotice", payload);
+        const result = await gasRequest("createNotice", buildNoticeWritePayload(payload, operator));
         const noticeId = result && result.notice_id ? String(result.notice_id) : "";
         const pushDelivery = result && result.push_delivery ? result.push_delivery : null;
 
@@ -10570,16 +10841,19 @@
     async function updateNoticeStatusFromAdmin(noticeId, nextStatus, actionButton) {
       if (!noticeId || !nextStatus) return;
 
+      const operator = await requestSharedNoticeOperator();
+      if (isSharedPortalAccount() && !operator) return;
+
       let isSuccess = false;
       setAdminActionMessage("", "");
       setAdminStatusButtonSubmitting(actionButton, true);
 
       try {
-        await gasRequest("updateNoticeStatus", {
+        await gasRequest("updateNoticeStatus", buildNoticeWritePayload({
           notice_id: noticeId,
           status: nextStatus,
           updated_by: "system"
-        });
+        }, operator));
 
         await refreshAllNoticeViews();
         setAdminActionMessage(
@@ -10687,6 +10961,12 @@
         return;
       }
 
+      const operator = await requestSharedNoticeOperator();
+      if (isSharedPortalAccount() && !operator) {
+        setAdminBulkHideEndedMessage("共有端末からの操作をキャンセルしました。");
+        return;
+      }
+
       setAdminBulkHideEndedMessage("");
       setAdminBulkHideEndedSubmitting(true);
 
@@ -10694,11 +10974,11 @@
 
       for (const target of targets) {
         try {
-          await gasRequest("updateNoticeStatus", {
+          await gasRequest("updateNoticeStatus", buildNoticeWritePayload({
             notice_id: target.notice_id,
             status: "hidden",
             updated_by: "system"
-          });
+          }, operator));
         } catch (error) {
           failedItems.push({
             notice_id: target.notice_id,
@@ -10872,17 +11152,23 @@
         ? "掲示を非公開にしました。"
         : "掲示を公開しました。";
 
+      const operator = await requestSharedNoticeOperator();
+      if (isSharedPortalAccount() && !operator) {
+        setTextContent("admin-status-confirm-message", "共有端末からの操作をキャンセルしました。");
+        return;
+      }
+
       setTextContent("admin-status-confirm-message", "");
       setAdminActionMessage("", "");
       setAdminStatusConfirmSubmitting(true);
       setAdminStatusButtonSubmitting(context.actionButton, true);
 
       try {
-        await gasRequest("updateNoticeStatus", {
+        await gasRequest("updateNoticeStatus", buildNoticeWritePayload({
           notice_id: context.noticeId,
           status: nextStatus,
           updated_by: "system"
-        });
+        }, operator));
 
         adminStatusConfirmContext = null;
         setAdminStatusConfirmSubmitting(false);
@@ -11024,17 +11310,23 @@
       }
 
       const noticeId = deleteTargetNotice.notice_id;
+      const operator = await requestSharedNoticeOperator();
+      if (isSharedPortalAccount() && !operator) {
+        setDeleteConfirmMessage("共有端末からの操作をキャンセルしました。");
+        return;
+      }
+
       let isSuccess = false;
 
       setDeleteConfirmMessage("");
       setDeleteConfirmSubmitting(true);
 
       try {
-        await gasRequest("updateNoticeStatus", {
+        await gasRequest("updateNoticeStatus", buildNoticeWritePayload({
           notice_id: noticeId,
           status: "deleted",
           updated_by: "system"
-        });
+        }, operator));
 
         isSuccess = true;
         closeDeleteConfirmModal();
@@ -12182,10 +12474,16 @@
         context.payload.important_push_confirmed = true;
       }
 
+      const operator = await requestSharedNoticeOperator();
+      if (isSharedPortalAccount() && !operator) {
+        setTextContent("admin-save-confirm-message", "共有端末からの保存をキャンセルしました。");
+        return;
+      }
+
       setAdminSaveConfirmSubmitting(true);
       setTextContent("admin-save-confirm-message", context.isEditing ? "更新しています..." : "保存しています...");
 
-      const saveResult = await submitAdminNoticeForm(context.form, context.payload, context.isEditing);
+      const saveResult = await submitAdminNoticeForm(context.form, context.payload, context.isEditing, operator);
 
       if (saveResult && saveResult.ok) {
         closeAdminSaveConfirmModal();
