@@ -1,4 +1,11 @@
 <!--
+  v2.5-2b 初回設定時の通常パスワード欄重複表示修正
+  - v2.5-2a_work を基準に、hidden属性付き認証フォームがCSSのdisplay:gridで再表示される問題を修正。
+  - 初回設定中は「新しいパスワード」「新しいパスワード（確認）」のみ表示する。
+  - 設定済み社員は通常の「パスワード」欄のみ表示する。
+  - 認証処理・GAS・DB・Push通知・Service Worker・localStorageキーは変更しない。
+-->
+<!--
   v2.5-2a パスワード変更リンク余白調整
   - v2.5-2_work を基準に、初回認証画面の「パスワード変更」リンクへ左右余白を追加。
   - スマホ表示で文字と枠が窮屈に見えないよう調整。
@@ -243,7 +250,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 
-  <title>梅園ポータル v2.5-2a_work</title>
+  <title>梅園ポータル v2.5-2b_work</title>
 
   <meta name="description" content="梅園アプリ入口。社内掲示板、カレンダー、重要連絡、各種社内アプリをまとめて確認できます。">
   <meta property="og:type" content="website">
@@ -5958,6 +5965,7 @@
     }
 
     .portal-auth-step[hidden],
+    .portal-auth-form[hidden],
     .portal-auth-shared-panel[hidden] {
       display: none !important;
     }
@@ -6054,7 +6062,7 @@
         <img class="portal-auth-brand-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">
         <div>
           <h1 id="portal-auth-title" class="portal-auth-title">梅園ポータル</h1>
-          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-2a_work</p>
+          <p class="portal-auth-subtitle">かんたん初回設定 / v2.5-2b_work</p>
         </div>
       </div>
 
@@ -6163,7 +6171,7 @@
           <h1 class="app-title"><img class="app-title-icon" src="https://umezono-systems.github.io/umezono-app-assets/favicon_portal.png" alt="" aria-hidden="true">梅園ポータル</h1>
         </div>
         <div class="header-sub-row">
-          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-2a_work</p>
+          <p class="app-subtitle">梅園アプリ・掲示板 / v2.5-2b_work</p>
           <div id="connection-status" class="connection-status is-loading" role="status" aria-live="polite" title="データを取得しています。">
             <i id="connection-status-icon" data-lucide="loader-2" class="connection-status-icon" aria-hidden="true"></i>
             <span id="connection-status-label" class="connection-status-label">接続確認中</span>
